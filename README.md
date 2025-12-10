@@ -1,5 +1,7 @@
 # Glovebox
 
+![Glovebox](glovebox-1.jpg)
+
 A dockerized development sandbox for working with dangerous things like agentic coding tools and npm packages.
 
 ## Prerequisites
