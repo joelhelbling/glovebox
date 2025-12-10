@@ -4,7 +4,6 @@ mise.toml
 
 # Go build artifacts
 bin/glovebox
-glovebox-cli
 
 # Local glovebox profile (project-specific)
 .glovebox/
