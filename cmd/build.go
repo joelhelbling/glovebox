@@ -92,7 +92,8 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 			// Show instructions for preserving changes
 			fmt.Println("\nTo preserve your manual changes:")
-			fmt.Println("  1. Create a snippet file in snippets/custom/<name>.yaml")
+			fmt.Println("  1. Create a snippet file in .glovebox/snippets/custom/<name>.yaml")
+			fmt.Println("     (or ~/.glovebox/snippets/custom/<name>.yaml for global use)")
 			fmt.Println("  2. Add your changes to the appropriate section (apt_packages, run_as_root, etc.)")
 			fmt.Println("  3. Run: glovebox add custom/<name>")
 			fmt.Println("  4. Run: glovebox build")

@@ -169,7 +169,18 @@ Additionally, these config directories are mounted from your host:
 
 ## Creating Custom Snippets
 
-Create a YAML file in `snippets/custom/` with the following structure:
+Custom snippets can be placed in two locations:
+
+| Location | Scope | Path |
+|----------|-------|------|
+| Project-local | Only this project | `.glovebox/snippets/<name>.yaml` |
+| User global | All your projects | `~/.glovebox/snippets/<name>.yaml` |
+
+Local snippets take precedence over embedded ones, so you can override built-in snippets if needed.
+
+### Snippet Structure
+
+Create a YAML file with the following structure:
 
 ```yaml
 name: my-tool
@@ -198,9 +209,28 @@ env:
 user_shell: /usr/bin/bash  # Set as default shell (optional)
 ```
 
-Then add it to your profile:
+### Examples
 
+**Project-local snippet** (only for this project):
 ```bash
+mkdir -p .glovebox/snippets/custom
+# Create .glovebox/snippets/custom/my-tool.yaml
 glovebox add custom/my-tool
+glovebox build
+```
+
+**User global snippet** (available everywhere):
+```bash
+mkdir -p ~/.glovebox/snippets/custom
+# Create ~/.glovebox/snippets/custom/my-tool.yaml
+glovebox add custom/my-tool
+glovebox build
+```
+
+**Override a built-in snippet** (e.g., customize neovim):
+```bash
+mkdir -p ~/.glovebox/snippets/editors
+# Create ~/.glovebox/snippets/editors/neovim.yaml with your customizations
+# This will be used instead of the built-in neovim snippet
 glovebox build
 ```
