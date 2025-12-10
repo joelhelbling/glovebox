@@ -1,0 +1,9 @@
+name: opencode
+description: OpenCode AI coding assistant
+category: ai
+requires:
+  - base
+  - languages/nodejs
+
+run_as_root: |
+  npm install -g opencode-ai

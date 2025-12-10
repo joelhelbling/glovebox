@@ -1,0 +1,11 @@
+name: claude-code
+description: Anthropic's Claude Code CLI assistant
+category: ai
+requires:
+  - base
+  - languages/nodejs
+
+run_as_root: |
+  npm install -g @anthropic-ai/claude-code
+  mkdir -p /home/ubuntu/.anthropic
+  chown -R ubuntu:ubuntu /home/ubuntu/.anthropic
