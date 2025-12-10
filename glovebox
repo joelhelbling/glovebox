@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="glovebox"
+
+# Build the image if it doesn't exist or if --build flag is passed
+if [[ "$1" == "--build" ]] || [[ "$2" == "--build" ]]; then
+    echo "Building glovebox image..."
+    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+    # Remove --build from args
+    args=("$@")
+    for i in "${!args[@]}"; do
+        if [[ "${args[$i]}" == "--build" ]]; then
+            unset 'args[$i]'
+        fi
+    done
+    set -- "${args[@]}"
+fi
+
+# Check if image exists
+if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
+    echo "Glovebox image not found. Building..."
+    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+fi
+
+# Default to current directory if no path provided
+TARGET_DIR="${1:-.}"
+
+# Resolve to absolute path
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+
+# Extract the directory name for use as the container workspace name
+DIR_NAME="$(basename "$TARGET_DIR")"
+CONTAINER_PATH="/home/ubuntu/$DIR_NAME"
+
+# Generate a unique volume name: glovebox-<basename>-<short-hash>
+SHORT_HASH=$(echo -n "$TARGET_DIR" | shasum -a 256 | cut -c1-7)
+VOLUME_NAME="glovebox-${DIR_NAME}-${SHORT_HASH}"
+
+# Create the volume if it doesn't exist
+if ! docker volume inspect "$VOLUME_NAME" &> /dev/null; then
+    echo "Creating mise volume: $VOLUME_NAME"
+    docker volume create "$VOLUME_NAME" > /dev/null
+fi
+
+echo "Starting glovebox with workspace: $TARGET_DIR -> $CONTAINER_PATH"
+echo "Using mise volume: $VOLUME_NAME"
+
+docker run -it --rm \
+    -v "$TARGET_DIR:$CONTAINER_PATH" \
+    -w "$CONTAINER_PATH" \
+    -v "$VOLUME_NAME:/home/ubuntu/.local/share/mise" \
+    -v "$HOME/.anthropic:/home/ubuntu/.anthropic" \
+    -v "$HOME/.config/gemini:/home/ubuntu/.config/gemini" \
+    -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
+    -e OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+    -e GOOGLE_API_KEY="${GOOGLE_API_KEY:-}" \
+    -e GEMINI_API_KEY="${GEMINI_API_KEY:-}" \
+    -e MISE_TRUSTED_CONFIG_PATHS="$CONTAINER_PATH:$CONTAINER_PATH/**" \
+    --hostname glovebox \
+    "$IMAGE_NAME"
