@@ -11,9 +11,20 @@ glovebox - Run code in an isolated Docker environment
 
 USAGE:
     glovebox [OPTIONS] [DIRECTORY]
+    glovebox clone <repository> [OPTIONS]
 
 ARGUMENTS:
     DIRECTORY    Path to mount as workspace (default: current directory)
+
+COMMANDS:
+    clone <repository>
+        Clone a git repository and start glovebox in it.
+        Repository can be:
+          - user/repo    (assumes GitHub, e.g., joelhelbling/glovebox)
+          - Full URL     (GitHub, GitLab, Bitbucket, or any git URL)
+
+        If a directory named 'clone' exists and no repository is specified,
+        you will be prompted to clarify your intent.
 
 OPTIONS:
     -h, --help   Show this help message and exit
@@ -39,6 +50,8 @@ EXAMPLES:
     glovebox ~/projects/myapp   # Run with specific directory
     glovebox --build            # Rebuild image, then run in current directory
     glovebox --build ./myapp    # Rebuild image, then run with ./myapp
+    glovebox clone rails/rails  # Clone from GitHub and run glovebox in it
+    glovebox clone https://gitlab.com/user/repo.git  # Clone from any git URL
 
 EOF
 }
@@ -47,6 +60,66 @@ EOF
 if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
     show_usage
     exit 0
+fi
+
+# Handle clone command
+if [[ "$1" == "clone" ]]; then
+    # Check for ambiguity: no repo argument AND a directory named "clone" exists
+    if [[ -z "$2" ]] && [[ -d "clone" ]]; then
+        echo "Ambiguous: 'clone' could be a command or a directory."
+        echo "Did you mean:"
+        echo "  1) Clone a repository (requires: glovebox clone <user/repo>)"
+        echo "  2) Open directory ./clone"
+        echo ""
+        read -p "Enter choice [1/2]: " choice
+        case "$choice" in
+            1)
+                echo "Error: clone command requires a repository argument"
+                echo "Usage: glovebox clone <user/repo> or glovebox clone <url>"
+                exit 1
+                ;;
+            2)
+                # Treat as directory, let it fall through to normal processing
+                :
+                ;;
+            *)
+                echo "Invalid choice. Exiting."
+                exit 1
+                ;;
+        esac
+    elif [[ -z "$2" ]]; then
+        # No directory conflict, just missing argument
+        echo "Error: clone requires a repository argument"
+        echo "Usage: glovebox clone <user/repo> or glovebox clone <url>"
+        exit 1
+    else
+        # Clone command with repo argument - execute it
+        REPO_ARG="$2"
+        shift 2  # Remove 'clone' and repo from args, remaining args passed to glovebox
+
+        # Convert user/repo format to GitHub URL if it doesn't look like a URL
+        if [[ "$REPO_ARG" != *"://"* && "$REPO_ARG" != *"@"* ]]; then
+            # Assume GitHub for short form (user/repo)
+            REPO_URL="https://github.com/${REPO_ARG}.git"
+        else
+            REPO_URL="$REPO_ARG"
+        fi
+
+        # Extract directory name from URL
+        CLONE_DIR=$(basename "$REPO_URL" .git)
+
+        echo "Cloning $REPO_URL..."
+        if ! git clone "$REPO_URL"; then
+            echo "Error: Failed to clone repository"
+            exit 1
+        fi
+
+        echo "Entering $CLONE_DIR and starting glovebox..."
+        cd "$CLONE_DIR"
+
+        # Re-invoke glovebox in the cloned directory with any remaining args
+        exec "$SCRIPT_DIR/glovebox" "$@" .
+    fi
 fi
 
 # Build the image if it doesn't exist or if --build flag is passed
