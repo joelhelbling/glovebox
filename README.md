@@ -25,6 +25,10 @@ glovebox
 # Start glovebox in a specific directory
 glovebox /path/to/project
 
+# Clone a repository and start glovebox in it
+glovebox clone user/repo              # GitHub shorthand
+glovebox clone https://gitlab.com/user/repo.git  # Any git URL
+
 # Force rebuild the image
 glovebox --build
 
