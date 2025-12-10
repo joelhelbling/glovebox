@@ -27,6 +27,10 @@ glovebox /path/to/project
 
 # Force rebuild the image
 glovebox --build
+
+# Show help
+glovebox -h
+glovebox --help
 ```
 
 The container mounts your project directory and drops you into a Fish shell.
