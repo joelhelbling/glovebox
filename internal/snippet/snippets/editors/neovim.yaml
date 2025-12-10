@@ -1,0 +1,22 @@
+name: neovim
+description: Neovim - hyperextensible Vim-based text editor
+category: editor
+requires:
+  - base
+
+run_as_root: |
+  ARCH=$(dpkg --print-architecture)
+  if [ "$ARCH" = "amd64" ]; then
+      NVIM_ARCH="linux-x86_64"
+  elif [ "$ARCH" = "arm64" ]; then
+      NVIM_ARCH="linux-arm64"
+  else
+      echo "Unsupported architecture: $ARCH" && exit 1
+  fi
+  curl -fsSL -o nvim.tar.gz "https://github.com/neovim/neovim/releases/latest/download/nvim-${NVIM_ARCH}.tar.gz"
+  tar -C /opt -xzf nvim.tar.gz
+  rm nvim.tar.gz
+  ln -s /opt/nvim-${NVIM_ARCH}/bin/nvim /usr/local/bin/nvim
+
+env:
+  EDITOR: nvim

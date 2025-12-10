@@ -1,0 +1,11 @@
+name: vim
+description: Vim - the ubiquitous text editor
+category: editor
+requires:
+  - base
+
+apt_packages:
+  - vim
+
+env:
+  EDITOR: vim

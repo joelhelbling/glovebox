@@ -1,0 +1,10 @@
+name: bash
+description: Bash shell (default, minimal configuration)
+category: shell
+requires:
+  - base
+
+env:
+  SHELL: /bin/bash
+
+user_shell: /bin/bash

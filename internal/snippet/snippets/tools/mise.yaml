@@ -1,0 +1,10 @@
+name: mise
+description: Polyglot runtime version manager (replaces asdf, nvm, rbenv, etc.)
+category: tool
+requires:
+  - base
+
+run_as_root: |
+  curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+  mkdir -p /home/ubuntu/.local/share/mise
+  chown -R ubuntu:ubuntu /home/ubuntu/.local/share/mise
