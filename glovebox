@@ -5,6 +5,50 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="glovebox"
 
+show_usage() {
+    cat << 'EOF'
+glovebox - Run code in an isolated Docker environment
+
+USAGE:
+    glovebox [OPTIONS] [DIRECTORY]
+
+ARGUMENTS:
+    DIRECTORY    Path to mount as workspace (default: current directory)
+
+OPTIONS:
+    -h, --help   Show this help message and exit
+    --build      Force rebuild of the Docker image before running
+
+DESCRIPTION:
+    Glovebox creates a sandboxed Docker container for running untrusted or
+    experimental code. It mounts your specified directory into the container
+    and sets up a persistent mise volume for tool installations.
+
+    Each unique directory path gets its own mise volume, so tool installations
+    are cached between sessions for the same project.
+
+ENVIRONMENT VARIABLES:
+    The following environment variables are passed into the container if set:
+        ANTHROPIC_API_KEY
+        OPENAI_API_KEY
+        GOOGLE_API_KEY
+        GEMINI_API_KEY
+
+EXAMPLES:
+    glovebox                    # Run in current directory
+    glovebox ~/projects/myapp   # Run with specific directory
+    glovebox --build            # Rebuild image, then run in current directory
+    glovebox --build ./myapp    # Rebuild image, then run with ./myapp
+
+EOF
+}
+
+# Handle help flag
+if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+    show_usage
+    exit 0
+fi
+
 # Build the image if it doesn't exist or if --build flag is passed
 if [[ "$1" == "--build" ]] || [[ "$2" == "--build" ]]; then
     echo "Building glovebox image..."
