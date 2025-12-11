@@ -11,10 +11,14 @@ import (
 // GenerateBase creates a base Dockerfile from a list of snippet IDs.
 // This is used for the global profile and produces a standalone image.
 func GenerateBase(snippetIDs []string) (string, error) {
-	snippets, err := snippet.LoadMultiple(snippetIDs)
+	allSnippets, err := snippet.LoadMultiple(snippetIDs)
 	if err != nil {
 		return "", fmt.Errorf("loading snippets: %w", err)
 	}
+
+	// Separate build-time and post-install snippets
+	snippets := filterBuildTimeSnippets(allSnippets)
+	postInstallSnippets := filterPostInstallSnippets(allSnippets)
 
 	var b strings.Builder
 
@@ -26,9 +30,16 @@ func GenerateBase(snippetIDs []string) (string, error) {
 	b.WriteString("#   glovebox remove <snippet>   Remove a snippet\n")
 	b.WriteString("#   glovebox build              Regenerate this file\n")
 	b.WriteString("#\n")
-	b.WriteString("# Snippets included:\n")
+	b.WriteString("# Build-time snippets:\n")
 	for _, s := range snippets {
 		b.WriteString(fmt.Sprintf("#   - %s\n", s.Name))
+	}
+	if len(postInstallSnippets) > 0 {
+		b.WriteString("#\n")
+		b.WriteString("# Post-install snippets (installed on first run):\n")
+		for _, s := range postInstallSnippets {
+			b.WriteString(fmt.Sprintf("#   - %s\n", s.Name))
+		}
 	}
 	b.WriteString("\n")
 
@@ -91,6 +102,15 @@ func GenerateBase(snippetIDs []string) (string, error) {
 	b.WriteString("\nEOF\n")
 	b.WriteString("RUN chmod 755 /usr/local/bin/entrypoint.sh\n\n")
 
+	// Create post-install script directory and script
+	b.WriteString("# Create post-install script for first-run provisioning\n")
+	b.WriteString("RUN mkdir -p /usr/local/lib/glovebox\n")
+	postInstallScript := GeneratePostInstallScript(allSnippets)
+	b.WriteString("RUN cat > /usr/local/lib/glovebox/post-install.sh <<'EOF'\n")
+	b.WriteString(postInstallScript)
+	b.WriteString("EOF\n")
+	b.WriteString("RUN chmod 755 /usr/local/lib/glovebox/post-install.sh\n\n")
+
 	// Switch to non-root user
 	b.WriteString("# Switch to non-root user\n")
 	b.WriteString("USER ubuntu\n")
@@ -138,11 +158,17 @@ func GenerateBase(snippetIDs []string) (string, error) {
 
 // GenerateProject creates a project Dockerfile that extends the base image.
 // It only includes project-specific snippets (additive to base).
-func GenerateProject(snippetIDs []string) (string, error) {
-	snippets, err := snippet.LoadMultiple(snippetIDs)
+// baseSnippetIDs should contain the snippets already installed in the base image,
+// so their dependencies won't be redundantly included.
+func GenerateProject(snippetIDs []string, baseSnippetIDs []string) (string, error) {
+	allSnippets, err := snippet.LoadMultipleExcluding(snippetIDs, baseSnippetIDs)
 	if err != nil {
 		return "", fmt.Errorf("loading snippets: %w", err)
 	}
+
+	// Separate build-time and post-install snippets
+	snippets := filterBuildTimeSnippets(allSnippets)
+	postInstallSnippets := filterPostInstallSnippets(allSnippets)
 
 	var b strings.Builder
 
@@ -155,9 +181,23 @@ func GenerateProject(snippetIDs []string) (string, error) {
 	b.WriteString("#   glovebox remove <snippet>   Remove a snippet\n")
 	b.WriteString("#   glovebox build              Regenerate this file\n")
 	b.WriteString("#\n")
-	b.WriteString("# Project snippets:\n")
-	for _, s := range snippets {
-		b.WriteString(fmt.Sprintf("#   - %s\n", s.Name))
+	if len(snippets) > 0 {
+		b.WriteString("# Build-time snippets:\n")
+		for _, s := range snippets {
+			b.WriteString(fmt.Sprintf("#   - %s\n", s.Name))
+		}
+	}
+	if len(postInstallSnippets) > 0 {
+		if len(snippets) > 0 {
+			b.WriteString("#\n")
+		}
+		b.WriteString("# Post-install snippets (installed on first run):\n")
+		for _, s := range postInstallSnippets {
+			b.WriteString(fmt.Sprintf("#   - %s\n", s.Name))
+		}
+	}
+	if len(snippets) == 0 && len(postInstallSnippets) == 0 {
+		b.WriteString("# (no project-specific snippets)\n")
 	}
 	b.WriteString("\n")
 
@@ -238,6 +278,18 @@ func GenerateProject(snippetIDs []string) (string, error) {
 		b.WriteString("\n")
 	}
 
+	// Update post-install script if there are project-specific post-install snippets
+	if len(postInstallSnippets) > 0 {
+		b.WriteString("# Update post-install script with project-specific snippets\n")
+		b.WriteString("USER root\n")
+		postInstallScript := GeneratePostInstallScript(allSnippets)
+		b.WriteString("RUN cat > /usr/local/lib/glovebox/post-install.sh <<'EOF'\n")
+		b.WriteString(postInstallScript)
+		b.WriteString("EOF\n")
+		b.WriteString("RUN chmod 755 /usr/local/lib/glovebox/post-install.sh\n")
+		b.WriteString("USER ubuntu\n\n")
+	}
+
 	// Set working directory
 	b.WriteString("# Set working directory for mounted projects\n")
 	b.WriteString("WORKDIR /workspace\n")
@@ -301,4 +353,78 @@ func determineDefaultShell(snippets []*snippet.Snippet) string {
 		}
 	}
 	return shell
+}
+
+// filterBuildTimeSnippets returns only snippets that should be installed during docker build
+func filterBuildTimeSnippets(snippets []*snippet.Snippet) []*snippet.Snippet {
+	var result []*snippet.Snippet
+	for _, s := range snippets {
+		if s.IsBuildTime() {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// filterPostInstallSnippets returns only snippets that should be installed on first run
+func filterPostInstallSnippets(snippets []*snippet.Snippet) []*snippet.Snippet {
+	var result []*snippet.Snippet
+	for _, s := range snippets {
+		if s.IsPostInstall() {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// GeneratePostInstallScript creates a shell script for first-run installation
+func GeneratePostInstallScript(snippets []*snippet.Snippet) string {
+	postInstallSnippets := filterPostInstallSnippets(snippets)
+
+	var b strings.Builder
+
+	b.WriteString("#!/bin/bash\n")
+	b.WriteString("set -e\n\n")
+
+	if len(postInstallSnippets) == 0 {
+		b.WriteString("# No post-install snippets configured\n")
+		b.WriteString("exit 0\n")
+		return b.String()
+	}
+
+	b.WriteString("echo \"\"\n")
+	b.WriteString("echo \"===========================================\"\n")
+	b.WriteString("echo \"Glovebox: First-run provisioning\"\n")
+	b.WriteString("echo \"===========================================\"\n")
+	b.WriteString("echo \"\"\n")
+	b.WriteString("echo \"Installing tools you selected. This only\"\n")
+	b.WriteString("echo \"happens on first run - subsequent starts\"\n")
+	b.WriteString("echo \"will be instant.\"\n")
+	b.WriteString("echo \"\"\n\n")
+
+	total := len(postInstallSnippets)
+	for i, s := range postInstallSnippets {
+		b.WriteString(fmt.Sprintf("# %s\n", s.Name))
+		b.WriteString(fmt.Sprintf("echo \"[%d/%d] Installing %s...\"\n", i+1, total, s.Name))
+
+		if s.RunAsRoot != "" {
+			b.WriteString("sudo bash <<'ROOTEOF'\n")
+			b.WriteString("set -e\n")
+			b.WriteString(strings.TrimSpace(s.RunAsRoot))
+			b.WriteString("\nROOTEOF\n\n")
+		}
+
+		if s.RunAsUser != "" {
+			b.WriteString(strings.TrimSpace(s.RunAsUser))
+			b.WriteString("\n\n")
+		}
+	}
+
+	b.WriteString("echo \"\"\n")
+	b.WriteString("echo \"===========================================\"\n")
+	b.WriteString("echo \"Provisioning complete!\"\n")
+	b.WriteString("echo \"===========================================\"\n")
+	b.WriteString("echo \"\"\n")
+
+	return b.String()
 }
