@@ -29,7 +29,7 @@ ln -s /path/to/glovebox/bin/glovebox ~/.local/bin/glovebox
 
 ```bash
 # Create your base environment (one time setup)
-glovebox init --global
+glovebox init --base
 glovebox build --base
 
 # Run glovebox in any project directory
@@ -61,12 +61,12 @@ Glovebox uses a **layered image approach**:
 
 | Command | Description |
 |---------|-------------|
-| `glovebox init --global` | Create global base profile (~/.glovebox/profile.yaml) |
+| `glovebox init --base` | Create base profile (~/.glovebox/profile.yaml) |
 | `glovebox init` | Create project-specific profile (.glovebox/profile.yaml) |
 | `glovebox list` | List all available snippets |
 | `glovebox add <snippet>` | Add a snippet to your profile |
 | `glovebox remove <snippet>` | Remove a snippet from your profile |
-| `glovebox build --base` | Build the base image from global profile |
+| `glovebox build --base` | Build the base image from base profile |
 | `glovebox build` | Build project image (or base if no project profile) |
 | `glovebox build --generate-only` | Only generate Dockerfile, don't build |
 | `glovebox status` | Show profile and image status |
@@ -112,7 +112,7 @@ tools:
 
 ```bash
 # Create your base environment with your preferred tools
-glovebox init --global
+glovebox init --base
 
 # Build the base image
 glovebox build --base
@@ -196,7 +196,7 @@ Custom snippets can be placed in two locations:
 | Location | Scope | Path |
 |----------|-------|------|
 | Project-local | Only this project | `.glovebox/snippets/<name>.yaml` |
-| User global | All your projects | `~/.glovebox/snippets/<name>.yaml` |
+| User base | All your projects | `~/.glovebox/snippets/<name>.yaml` |
 
 Local snippets take precedence over embedded ones, so you can override built-in snippets if needed.
 
