@@ -57,6 +57,39 @@ Glovebox uses a **layered image approach**:
 └─────────────────────────────┘
 ```
 
+### Build-time vs Post-install Snippets
+
+Snippets can be installed at two different phases:
+
+| Phase | When | Use Case |
+|-------|------|----------|
+| **build** (default) | During `docker build` | Core tools, shells, package managers |
+| **post_install** | First container run | Tools that benefit from volume persistence |
+
+Post-install snippets (like AI coding assistants and editors) are installed on first container start:
+
+```
+===========================================
+Glovebox: First-run provisioning
+===========================================
+
+Installing tools you selected. This only
+happens on first run - subsequent starts
+will be instant.
+
+[1/1] Installing claude-code...
+🍺  claude-code was successfully installed!
+
+===========================================
+Provisioning complete!
+===========================================
+```
+
+**Benefits of post-install:**
+- Smaller Docker images (tools not baked into layers)
+- Installations persist in home volume across image rebuilds
+- Faster iteration on base image without reinstalling tools
+
 ## Commands
 
 | Command | Description |
@@ -72,6 +105,8 @@ Glovebox uses a **layered image approach**:
 | `glovebox status` | Show profile and image status |
 | `glovebox run [directory]` | Run glovebox container |
 | `glovebox clone <repo>` | Clone a repo and start glovebox in it |
+| `glovebox snippet cat <id>` | Output a snippet's raw YAML to stdout |
+| `glovebox snippet create <name>` | Create a new custom snippet from template |
 
 ## Composable Snippets
 
@@ -89,12 +124,13 @@ core:
   base                 Core dependencies required by all glovebox environments
 
 editors:
+  editors/emacs        GNU Emacs - the extensible text editor
   editors/helix        Helix - a post-modern modal text editor
   editors/neovim       Neovim - hyperextensible Vim-based text editor
   editors/vim          Vim - the ubiquitous text editor
 
 languages:
-  languages/nodejs     Node.js JavaScript runtime (v22 LTS)
+  languages/nodejs     Node.js JavaScript runtime (LTS)
 
 shells:
   shells/bash          Bash shell (default, minimal configuration)
@@ -208,6 +244,7 @@ Create a YAML file with the following structure:
 name: my-tool
 description: My custom tool configuration
 category: custom
+install_phase: build  # "build" (default) or "post_install"
 requires:
   - base  # dependencies on other snippets
 
@@ -231,6 +268,8 @@ env:
 user_shell: /usr/bin/bash  # Set as default shell (optional)
 ```
 
+Use `install_phase: post_install` for tools installed via homebrew or mise that you want to persist in volumes.
+
 ### Examples
 
 **Add to your base image** (available everywhere):
@@ -251,9 +290,11 @@ glovebox build
 
 **Override a built-in snippet** (e.g., customize neovim):
 ```bash
+# Copy the built-in snippet as a starting point
 mkdir -p ~/.glovebox/snippets/editors
-# Create ~/.glovebox/snippets/editors/neovim.yaml with your customizations
-# This will be used instead of the built-in neovim snippet
+glovebox snippet cat editors/neovim > ~/.glovebox/snippets/editors/neovim.yaml
+
+# Edit to customize, then rebuild
 glovebox build --base
 ```
 
