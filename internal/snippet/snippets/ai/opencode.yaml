@@ -1,6 +1,7 @@
 name: opencode
 description: OpenCode AI coding assistant
 category: ai
+install_phase: post_install
 requires:
   - tools/homebrew
 
