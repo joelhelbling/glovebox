@@ -13,6 +13,7 @@ var rootCmd = &cobra.Command{
 	Long: `Glovebox creates sandboxed Docker containers for running untrusted or
 experimental code. It uses a mod-based system to compose your perfect
 development environment from modular, reusable pieces.`,
+	Version: Version,
 }
 
 func Execute() {

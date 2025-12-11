@@ -9,12 +9,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-# Build the CLI binary (requires mise for Go)
-mise exec -- go build -o bin/glovebox .
+# Build the CLI binary with version from git tags (requires mise for Go)
+mise exec -- go build -ldflags "-X github.com/joelhelbling/glovebox/cmd.Version=$(git describe --tags --always --dirty)" -o bin/glovebox .
 
 # Build and test a glovebox Docker image
 ./bin/glovebox build --base    # Build base image from ~/.glovebox/profile.yaml
 ./bin/glovebox build           # Build project image from .glovebox/profile.yaml
+```
+
+## Versioning and Releases
+
+Glovebox uses git tag-based versioning. The version is injected at build time via `-ldflags`.
+
+### Version Format
+
+- On a tag: `v0.2.0`
+- After commits: `v0.2.0-3-g1a2b3c4` (3 commits after v0.2.0, at commit 1a2b3c4)
+- With uncommitted changes: `v0.2.0-3-g1a2b3c4-dirty`
+- No tags: just the commit sha
+
+### Creating a Release
+
+```bash
+# 1. Ensure all changes are committed
+git status
+
+# 2. Create an annotated tag (preferred) or lightweight tag
+git tag -a v0.3.0 -m "Release v0.3.0: brief description"
+# or: git tag v0.3.0
+
+# 3. Build the binary (version will be v0.3.0)
+mise exec -- go build -ldflags "-X github.com/joelhelbling/glovebox/cmd.Version=$(git describe --tags --always --dirty)" -o bin/glovebox .
+
+# 4. Verify
+./bin/glovebox --version
+
+# 5. Push the tag
+git push origin v0.3.0
+```
+
+### Checking Current Version
+
+```bash
+./bin/glovebox --version
+# or
+./bin/glovebox -v
 ```
 
 ## Architecture
