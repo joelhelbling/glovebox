@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/assets"
@@ -131,8 +132,14 @@ func GenerateBase(modIDs []string) (string, error) {
 	envVars := collectEnvVars(mods)
 	if len(envVars) > 0 {
 		b.WriteString("# Environment variables\n")
-		for key, value := range envVars {
-			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, value))
+		// Sort keys for deterministic output
+		envKeys := make([]string, 0, len(envVars))
+		for key := range envVars {
+			envKeys = append(envKeys, key)
+		}
+		sortStrings(envKeys)
+		for _, key := range envKeys {
+			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
 		}
 		b.WriteString("\n")
 	}
@@ -272,8 +279,14 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	envVars := collectEnvVars(mods)
 	if len(envVars) > 0 {
 		b.WriteString("# Environment variables\n")
-		for key, value := range envVars {
-			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, value))
+		// Sort keys for deterministic output
+		envKeys := make([]string, 0, len(envVars))
+		for key := range envVars {
+			envKeys = append(envKeys, key)
+		}
+		sortStrings(envKeys)
+		for _, key := range envKeys {
+			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
 		}
 		b.WriteString("\n")
 	}
@@ -342,6 +355,11 @@ func collectEnvVars(mods []*mod.Mod) map[string]string {
 		}
 	}
 	return result
+}
+
+// sortStrings sorts a slice of strings in place
+func sortStrings(s []string) {
+	sort.Strings(s)
 }
 
 // determineDefaultShell finds the last shell specified by mods
