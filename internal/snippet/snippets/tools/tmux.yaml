@@ -2,15 +2,7 @@ name: tmux
 description: Terminal multiplexer with tmuxp session manager
 category: tool
 requires:
-  - base
+  - tools/homebrew
 
-apt_packages:
-  - tmux
-  - python3
-  - python3-pip
-  - pipx
-
-run_as_root: |
-  pipx install tmuxp
-  mkdir -p /home/ubuntu/.local/bin
-  chown -R ubuntu:ubuntu /home/ubuntu/.local
+run_as_user: |
+  brew install tmux

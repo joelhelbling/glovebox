@@ -2,8 +2,7 @@ name: opencode
 description: OpenCode AI coding assistant
 category: ai
 requires:
-  - base
-  - languages/nodejs
+  - tools/homebrew
 
-run_as_root: |
-  npm install -g opencode-ai
+run_as_user: |
+  brew install opencode

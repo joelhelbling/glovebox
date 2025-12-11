@@ -2,9 +2,7 @@ name: nodejs
 description: Node.js JavaScript runtime (v22 LTS)
 category: language
 requires:
-  - base
+  - tools/mise
 
-run_as_root: |
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  apt-get install -y nodejs
-  rm -rf /var/lib/apt/lists/*
+run_as_user: |
+  mise use -g node@latest
