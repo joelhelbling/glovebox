@@ -3,7 +3,7 @@ mise.toml
 .claude/settings.local.json
 
 # Go build artifacts
-bin/glovebox
+bin/
 
 # Local glovebox profile (project-specific)
 .glovebox/

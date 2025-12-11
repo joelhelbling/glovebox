@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/digest"
@@ -102,7 +106,47 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Show volumes section
+	fmt.Println()
+	bold.Println("Volumes:")
+	showVolumeStatus(cwd, green, yellow, dim)
+
 	return nil
+}
+
+func showVolumeStatus(cwd string, green, yellow, dim *color.Color) {
+	// Calculate volume name (same logic as run.go)
+	absPath, err := filepath.Abs(cwd)
+	if err != nil {
+		yellow.Printf("  Error: %v\n", err)
+		return
+	}
+
+	hash := sha256.Sum256([]byte(absPath))
+	shortHash := fmt.Sprintf("%x", hash)[:7]
+	dirName := filepath.Base(absPath)
+	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
+
+	// Workspace mount
+	fmt.Printf("  Workspace: %s → /%s\n", absPath, dirName)
+
+	// Home volume
+	fmt.Printf("  Home volume: %s → /home/ubuntu\n", volumeName)
+	if volumeExists(volumeName) {
+		green.Println("    Status: Exists ✓")
+	} else {
+		dim.Println("    Status: Will be created on first run")
+	}
+}
+
+func volumeExists(name string) bool {
+	cmd := exec.Command("docker", "volume", "inspect", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	// Check that output contains the volume name (not just an error)
+	return strings.Contains(string(output), name)
 }
 
 func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFunc func([]string) (string, error), green, yellow, dim *color.Color) {
@@ -129,7 +173,7 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 
 	if currentDigest == p.Build.DockerfileDigest {
 		green.Println("    Status: Up to date ✓")
-		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Format("2006-01-02 15:04:05 UTC"))
+		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
 	} else {
 		yellow.Println("    Status: Modified since generation ⚠")
 	}
@@ -170,7 +214,7 @@ func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, base
 
 	if currentDigest == p.Build.DockerfileDigest {
 		green.Println("    Status: Up to date ✓")
-		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Format("2006-01-02 15:04:05 UTC"))
+		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
 	} else {
 		yellow.Println("    Status: Modified since generation ⚠")
 	}

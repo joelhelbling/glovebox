@@ -78,29 +78,14 @@ func runRun(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Using home volume: %s\n", volumeName)
 
 	// Build docker run command
+	// Mount workspace at /<dirName> so the prompt shows the project name
+	workspacePath := "/" + dirName
 	dockerArgs := []string{
 		"run", "-it", "--rm",
-		"-v", fmt.Sprintf("%s:/workspace", absPath),
-		"-w", "/workspace",
+		"-v", fmt.Sprintf("%s:%s", absPath, workspacePath),
+		"-w", workspacePath,
 		"-v", fmt.Sprintf("%s:/home/ubuntu", volumeName),
 		"--hostname", "glovebox",
-	}
-
-	// Add config directory mounts if they exist (read-only from host)
-	home, _ := os.UserHomeDir()
-	if home != "" {
-		// Mount .anthropic for Claude API key file
-		anthropicDir := filepath.Join(home, ".anthropic")
-		if _, err := os.Stat(anthropicDir); err == nil {
-			dockerArgs = append(dockerArgs, "-v", fmt.Sprintf("%s:/home/ubuntu/.anthropic:ro", anthropicDir))
-		}
-
-		// Mount gemini config
-		geminiDir := filepath.Join(home, ".config", "gemini")
-		if _, err := os.Stat(geminiDir); err == nil {
-			// Ensure .config exists in the volume by creating parent mount point
-			dockerArgs = append(dockerArgs, "-v", fmt.Sprintf("%s:/home/ubuntu/.config/gemini:ro", geminiDir))
-		}
 	}
 
 	// Add environment variables if set
@@ -117,7 +102,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Add mise trusted config path
-	dockerArgs = append(dockerArgs, "-e", "MISE_TRUSTED_CONFIG_PATHS=/workspace:/workspace/**")
+	dockerArgs = append(dockerArgs, "-e", fmt.Sprintf("MISE_TRUSTED_CONFIG_PATHS=%s:%s/**", workspacePath, workspacePath))
 
 	// Add image name
 	dockerArgs = append(dockerArgs, imageName)
