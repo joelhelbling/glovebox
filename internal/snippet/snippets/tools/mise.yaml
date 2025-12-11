@@ -8,3 +8,20 @@ run_as_root: |
   curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
   mkdir -p /home/ubuntu/.local/share/mise
   chown -R ubuntu:ubuntu /home/ubuntu/.local/share/mise
+
+run_as_user: |
+  # Configure Mise for bash (if bashrc exists)
+  if [ -f ~/.bashrc ]; then
+    echo 'eval "$(mise activate bash)"' >> ~/.bashrc
+  fi
+
+  # Configure Mise for zsh (if zshrc exists)
+  if [ -f ~/.zshrc ]; then
+    echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
+  fi
+
+  # Configure Mise for fish (if fish config dir exists)
+  if [ -d ~/.config/fish ]; then
+    mkdir -p ~/.config/fish
+    echo 'mise activate fish | source' >> ~/.config/fish/config.fish
+  fi
