@@ -73,7 +73,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Starting glovebox with workspace: %s\n", absPath)
+	fmt.Printf("Starting glovebox with workspace: %s\n", collapsePath(absPath))
 	fmt.Printf("Using image: %s\n", imageName)
 	fmt.Printf("Using home volume: %s\n", volumeName)
 

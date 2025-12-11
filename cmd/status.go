@@ -58,7 +58,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 
 		globalPath, _ := profile.GlobalPath()
-		fmt.Printf("  Profile: %s\n", globalPath)
+		fmt.Printf("  Profile: %s\n", collapsePath(globalPath))
 		fmt.Printf("  Mods: %d\n", len(globalProfile.Mods))
 		for _, s := range globalProfile.Mods {
 			dim.Printf("    - %s\n", s)
@@ -92,7 +92,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			fmt.Println("  Run 'glovebox build' to build.")
 		}
 
-		fmt.Printf("  Profile: %s\n", projectProfile.Path)
+		fmt.Printf("  Profile: %s\n", collapsePath(projectProfile.Path))
 		fmt.Printf("  Mods: %d\n", len(projectProfile.Mods))
 		for _, s := range projectProfile.Mods {
 			dim.Printf("    - %s\n", s)
@@ -129,7 +129,7 @@ func showVolumeStatus(cwd string, green, yellow, dim *color.Color) {
 	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
 
 	// Workspace mount
-	fmt.Printf("  Workspace: %s → /%s\n", absPath, dirName)
+	fmt.Printf("  Workspace: %s → /%s\n", collapsePath(absPath), dirName)
 
 	// Home volume
 	fmt.Printf("  Home volume: %s → /home/ubuntu\n", volumeName)
@@ -151,7 +151,7 @@ func volumeExists(name string) bool {
 }
 
 func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFunc func([]string) (string, error), green, yellow, dim *color.Color) {
-	fmt.Printf("  Dockerfile: %s\n", dockerfilePath)
+	fmt.Printf("  Dockerfile: %s\n", collapsePath(dockerfilePath))
 
 	// Check if Dockerfile exists
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
@@ -192,7 +192,7 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 }
 
 func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseMods []string, green, yellow, dim *color.Color) {
-	fmt.Printf("  Dockerfile: %s\n", dockerfilePath)
+	fmt.Printf("  Dockerfile: %s\n", collapsePath(dockerfilePath))
 
 	// Check if Dockerfile exists
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
