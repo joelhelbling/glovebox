@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/joelhelbling/glovebox/internal/snippet"
 	"github.com/spf13/cobra"
 )
 
@@ -45,9 +46,29 @@ Examples:
 	RunE: runSnippetCreate,
 }
 
+var snippetCatCmd = &cobra.Command{
+	Use:   "cat <snippet-id>",
+	Short: "Output a snippet's raw YAML content",
+	Long: `Output the raw YAML content of a snippet to stdout.
+
+This is useful for inspecting snippets or creating custom overrides:
+
+  # View a snippet
+  glovebox snippet cat ai/claude-code
+
+  # Copy to local snippets and customize
+  glovebox snippet cat ai/claude-code > .glovebox/snippets/ai/claude-code.yaml
+
+The command respects the snippet load order (local > global > embedded),
+so it shows the version that would actually be used.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runSnippetCat,
+}
+
 func init() {
 	snippetCreateCmd.Flags().BoolVarP(&snippetGlobal, "global", "g", false, "Create in global snippets directory")
 	snippetCmd.AddCommand(snippetCreateCmd)
+	snippetCmd.AddCommand(snippetCatCmd)
 	rootCmd.AddCommand(snippetCmd)
 }
 
@@ -154,4 +175,17 @@ category: %s
 	}
 
 	return nil
+}
+
+func runSnippetCat(cmd *cobra.Command, args []string) error {
+	id := args[0]
+
+	data, _, err := snippet.LoadRaw(id)
+	if err != nil {
+		return err
+	}
+
+	// Write raw YAML to stdout (no trailing newline if content already has one)
+	_, err = os.Stdout.Write(data)
+	return err
 }
