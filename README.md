@@ -28,37 +28,54 @@ ln -s /path/to/glovebox/bin/glovebox ~/.local/bin/glovebox
 ## Quick Start
 
 ```bash
-# Initialize a profile (interactive snippet selection)
-glovebox init
+# Create your base environment (one time setup)
+glovebox init --global
+glovebox build --base
 
-# Generate Dockerfile and build the image
-glovebox build
-
-# Run glovebox in the current directory
+# Run glovebox in any project directory
+cd /path/to/your/project
 glovebox run
+```
 
-# Or run in a specific directory
-glovebox run /path/to/project
+## Architecture
+
+Glovebox uses a **layered image approach**:
+
+1. **Base Image (`glovebox:base`)**: Your standard development environment defined in `~/.glovebox/profile.yaml`. Contains your preferred shell, editor, and common tools. Build once, use everywhere.
+
+2. **Project Images**: Optional project-specific extensions defined in `.glovebox/profile.yaml`. Extends the base image with additional tools needed for that project.
+
+```
+┌─────────────────────────────┐
+│     Project Image           │  ← Project-specific tools
+│  (glovebox:myproject-abc123)│     FROM glovebox:base
+├─────────────────────────────┤
+│     Base Image              │  ← Your standard environment
+│     (glovebox:base)         │     Shell, editor, mise, etc.
+├─────────────────────────────┤
+│     Ubuntu 24.04            │
+└─────────────────────────────┘
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `glovebox init` | Initialize a new profile (interactive) |
-| `glovebox init --global` | Create a global profile (~/.glovebox/profile.yaml) |
+| `glovebox init --global` | Create global base profile (~/.glovebox/profile.yaml) |
+| `glovebox init` | Create project-specific profile (.glovebox/profile.yaml) |
 | `glovebox list` | List all available snippets |
 | `glovebox add <snippet>` | Add a snippet to your profile |
 | `glovebox remove <snippet>` | Remove a snippet from your profile |
-| `glovebox build` | Generate Dockerfile and build Docker image |
+| `glovebox build --base` | Build the base image from global profile |
+| `glovebox build` | Build project image (or base if no project profile) |
 | `glovebox build --generate-only` | Only generate Dockerfile, don't build |
-| `glovebox status` | Show profile and Dockerfile status |
+| `glovebox status` | Show profile and image status |
 | `glovebox run [directory]` | Run glovebox container |
 | `glovebox clone <repo>` | Clone a repo and start glovebox in it |
 
 ## Composable Snippets
 
-Glovebox uses a snippet-based system to compose your perfect development environment. Instead of a monolithic Dockerfile, you select the components you need:
+Glovebox uses a snippet-based system to compose your development environment:
 
 ```bash
 $ glovebox list
@@ -89,69 +106,74 @@ tools:
   tools/tmux           Terminal multiplexer with tmuxp session manager
 ```
 
-### Profile Management
+## Workflow
 
-Your profile is stored in `.glovebox/profile.yaml` (project-local) or `~/.glovebox/profile.yaml` (global):
-
-```yaml
-version: 1
-snippets:
-  - base
-  - shells/fish
-  - editors/neovim
-  - tools/tmux
-  - tools/mise
-  - ai/claude-code
-```
-
-### Modifying Your Environment
+### Initial Setup (One Time)
 
 ```bash
-# Add a snippet
-glovebox add ai/gemini-cli
+# Create your base environment with your preferred tools
+glovebox init --global
 
-# Remove a snippet
-glovebox remove ai/opencode
+# Build the base image
+glovebox build --base
+```
 
-# Regenerate Dockerfile after changes
+### Daily Use
+
+```bash
+# Run glovebox in any project directory
+cd ~/projects/my-app
+glovebox run
+```
+
+### Project-Specific Tools
+
+If a project needs additional tools not in your base image:
+
+```bash
+cd ~/projects/special-project
+
+# Create a project profile
+glovebox init
+
+# Add project-specific snippets
+glovebox add languages/python
+
+# Build and run
 glovebox build
-```
-
-### Dockerfile Tracking
-
-Glovebox tracks the generated Dockerfile with a digest. If you manually edit the Dockerfile, glovebox will detect it and offer options:
-
-```
-$ glovebox build
-⚠ Dockerfile has been modified since last generation
-
---- Current Dockerfile
-+++ Generated Dockerfile
-@@ -143,5 +143,3 @@
-...
-
-To preserve your manual changes:
-  1. Create a snippet file in snippets/custom/<name>.yaml
-  2. Add your changes to the appropriate section
-  3. Run: glovebox add custom/<name>
-  4. Run: glovebox build
-
-Proceed? [r]egenerate / [k]eep changes / [a]bort:
+glovebox run
 ```
 
 ## Persistence
 
-Glovebox containers are ephemeral - most changes are lost when you exit. However, **mise installations persist** via Docker volumes.
+### Home Directory Volume
 
-Each project gets its own mise volume named `glovebox-<dirname>-<hash>`, so languages/tools you install with mise will be available next time you run glovebox in that directory.
+Each project gets its own Docker volume for the container's home directory. This persists:
 
-To install a runtime:
+- Shell history
+- Mise-installed language versions
+- Tool configurations
+- Any files you create in `~`
+
+The volume is named `glovebox-<dirname>-<hash>-home`.
+
+### Philosophy: Dockerfile as Source of Truth
+
+While the home volume provides persistence, **treat your Dockerfile as the source of truth**:
+
+- If you want a tool to always be available, add it via a snippet
+- The home volume is a cache, not permanent storage
+- Deleting the volume and re-running should give you a fully functional environment
+
+This works well with tools like mise and direnv:
 
 ```bash
-mise use node@22
-mise use ruby@3.4
-mise use python@3.12
+# In your project's .envrc
+mise install      # Installs versions from mise.toml
+mise activate     # Activates the environment
 ```
+
+The container has mise/direnv installed (via snippets), but the specific language versions are installed on-demand and cached in the volume.
 
 ## API Keys
 
@@ -162,7 +184,7 @@ The following environment variables are passed through to the container:
 - `GOOGLE_API_KEY`
 - `GEMINI_API_KEY`
 
-Additionally, these config directories are mounted from your host:
+Additionally, these config directories are mounted read-only from your host:
 
 - `~/.anthropic` → `/home/ubuntu/.anthropic`
 - `~/.config/gemini` → `/home/ubuntu/.config/gemini`
@@ -211,18 +233,18 @@ user_shell: /usr/bin/bash  # Set as default shell (optional)
 
 ### Examples
 
-**Project-local snippet** (only for this project):
-```bash
-mkdir -p .glovebox/snippets/custom
-# Create .glovebox/snippets/custom/my-tool.yaml
-glovebox add custom/my-tool
-glovebox build
-```
-
-**User global snippet** (available everywhere):
+**Add to your base image** (available everywhere):
 ```bash
 mkdir -p ~/.glovebox/snippets/custom
 # Create ~/.glovebox/snippets/custom/my-tool.yaml
+glovebox add custom/my-tool
+glovebox build --base
+```
+
+**Add to a project** (only for this project):
+```bash
+mkdir -p .glovebox/snippets/custom
+# Create .glovebox/snippets/custom/my-tool.yaml
 glovebox add custom/my-tool
 glovebox build
 ```
@@ -232,5 +254,16 @@ glovebox build
 mkdir -p ~/.glovebox/snippets/editors
 # Create ~/.glovebox/snippets/editors/neovim.yaml with your customizations
 # This will be used instead of the built-in neovim snippet
-glovebox build
+glovebox build --base
 ```
+
+## File Locations
+
+| File | Purpose |
+|------|---------|
+| `~/.glovebox/profile.yaml` | Global profile (base image definition) |
+| `~/.glovebox/Dockerfile` | Generated base Dockerfile |
+| `~/.glovebox/snippets/` | Custom global snippets |
+| `.glovebox/profile.yaml` | Project profile (extends base) |
+| `.glovebox/Dockerfile` | Generated project Dockerfile |
+| `.glovebox/snippets/` | Custom project snippets |
