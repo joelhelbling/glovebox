@@ -26,9 +26,9 @@ type BuildInfo struct {
 
 // Profile represents a glovebox configuration
 type Profile struct {
-	Version  int       `yaml:"version"`
-	Snippets []string  `yaml:"snippets"`
-	Build    BuildInfo `yaml:"build,omitempty"`
+	Version int       `yaml:"version"`
+	Mods    []string  `yaml:"mods"`
+	Build   BuildInfo `yaml:"build,omitempty"`
 
 	// Path is not serialized - it's the location this profile was loaded from
 	Path string `yaml:"-"`
@@ -39,8 +39,8 @@ type Profile struct {
 // NewProfile creates a new empty profile
 func NewProfile() *Profile {
 	return &Profile{
-		Version:  1,
-		Snippets: []string{},
+		Version: 1,
+		Mods:    []string{},
 	}
 }
 
@@ -133,32 +133,32 @@ func (p *Profile) SaveTo(path string) error {
 	return p.Save()
 }
 
-// AddSnippet adds a snippet to the profile if not already present
-func (p *Profile) AddSnippet(id string) bool {
-	for _, s := range p.Snippets {
-		if s == id {
+// AddMod adds a mod to the profile if not already present
+func (p *Profile) AddMod(id string) bool {
+	for _, m := range p.Mods {
+		if m == id {
 			return false // Already present
 		}
 	}
-	p.Snippets = append(p.Snippets, id)
+	p.Mods = append(p.Mods, id)
 	return true
 }
 
-// RemoveSnippet removes a snippet from the profile
-func (p *Profile) RemoveSnippet(id string) bool {
-	for i, s := range p.Snippets {
-		if s == id {
-			p.Snippets = append(p.Snippets[:i], p.Snippets[i+1:]...)
+// RemoveMod removes a mod from the profile
+func (p *Profile) RemoveMod(id string) bool {
+	for i, m := range p.Mods {
+		if m == id {
+			p.Mods = append(p.Mods[:i], p.Mods[i+1:]...)
 			return true
 		}
 	}
 	return false
 }
 
-// HasSnippet checks if a snippet is in the profile
-func (p *Profile) HasSnippet(id string) bool {
-	for _, s := range p.Snippets {
-		if s == id {
+// HasMod checks if a mod is in the profile
+func (p *Profile) HasMod(id string) bool {
+	for _, m := range p.Mods {
+		if m == id {
 			return true
 		}
 	}

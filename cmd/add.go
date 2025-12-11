@@ -5,20 +5,20 @@ import (
 	"os"
 
 	"github.com/fatih/color"
+	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
-	"github.com/joelhelbling/glovebox/internal/snippet"
 	"github.com/spf13/cobra"
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <snippet>",
-	Short: "Add a snippet to your profile",
-	Long: `Add a snippet to your glovebox profile.
+	Use:   "add <mod>",
+	Short: "Add a mod to your profile",
+	Long: `Add a mod to your glovebox profile.
 
-Run 'glovebox list' to see available snippets.
+Run 'glovebox mod list' to see available mods.
 
-To create your own custom snippet, run:
-  glovebox snippet create <name>
+To create your own custom mod, run:
+  glovebox mod create <name>
 
 Examples:
   glovebox add shells/fish
@@ -33,11 +33,11 @@ func init() {
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
-	snippetID := args[0]
+	modID := args[0]
 
-	// Verify snippet exists
-	if _, err := snippet.Load(snippetID); err != nil {
-		return fmt.Errorf("snippet '%s' not found. Run 'glovebox list' to see available snippets", snippetID)
+	// Verify mod exists
+	if _, err := mod.Load(modID); err != nil {
+		return fmt.Errorf("mod '%s' not found. Run 'glovebox mod list' to see available mods", modID)
 	}
 
 	// Load effective profile
@@ -55,9 +55,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no profile found. Run 'glovebox init' first")
 	}
 
-	// Add snippet
-	if !p.AddSnippet(snippetID) {
-		fmt.Printf("Snippet '%s' is already in your profile.\n", snippetID)
+	// Add mod
+	if !p.AddMod(modID) {
+		fmt.Printf("Mod '%s' is already in your profile.\n", modID)
 		return nil
 	}
 
@@ -67,7 +67,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	green := color.New(color.FgGreen)
-	green.Printf("✓ Added '%s' to profile\n", snippetID)
+	green.Printf("✓ Added '%s' to profile\n", modID)
 	fmt.Println("\nRun 'glovebox build' to regenerate your Dockerfile.")
 
 	return nil

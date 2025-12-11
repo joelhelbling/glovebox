@@ -10,10 +10,10 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:     "remove <snippet>",
+	Use:     "remove <mod>",
 	Aliases: []string{"rm"},
-	Short:   "Remove a snippet from your profile",
-	Long: `Remove a snippet from your glovebox profile.
+	Short:   "Remove a mod from your profile",
+	Long: `Remove a mod from your glovebox profile.
 
 Example:
   glovebox remove ai/opencode
@@ -27,7 +27,7 @@ func init() {
 }
 
 func runRemove(cmd *cobra.Command, args []string) error {
-	snippetID := args[0]
+	modID := args[0]
 
 	// Load effective profile
 	cwd, err := os.Getwd()
@@ -44,9 +44,9 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no profile found. Run 'glovebox init' first")
 	}
 
-	// Remove snippet
-	if !p.RemoveSnippet(snippetID) {
-		fmt.Printf("Snippet '%s' is not in your profile.\n", snippetID)
+	// Remove mod
+	if !p.RemoveMod(modID) {
+		fmt.Printf("Mod '%s' is not in your profile.\n", modID)
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	green := color.New(color.FgGreen)
-	green.Printf("✓ Removed '%s' from profile\n", snippetID)
+	green.Printf("✓ Removed '%s' from profile\n", modID)
 	fmt.Println("\nRun 'glovebox build' to regenerate your Dockerfile.")
 
 	return nil

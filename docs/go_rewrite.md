@@ -13,26 +13,26 @@ The original ~150 lines of bash provided:
 
 The Go rewrite expanded the codebase to ~2,700 lines, transforming a simple "run Docker" script into a proper composable development environment builder.
 
-### 1. Composable Snippet System
+### 1. Composable Mod System
 
-- **14 built-in snippets** across 5 categories:
+- **14 built-in mods** across 5 categories:
   - Shells: bash, zsh, fish
   - Editors: vim, neovim, helix
   - Tools: mise, tmux, homebrew
   - Languages: nodejs
   - AI: claude-code, gemini-cli, opencode
-- YAML-based snippet definitions with apt repos, packages, root/user commands, and environment variables
-- Snippets embedded in binary via `//go:embed` for single-binary distribution
+- YAML-based mod definitions with apt repos, packages, root/user commands, and environment variables
+- Mods embedded in binary via `//go:embed` for single-binary distribution
 
-### 2. Three-Tier Snippet Loading
+### 2. Three-Tier Mod Loading
 
-Snippets are loaded from multiple locations in priority order:
+Mods are loaded from multiple locations in priority order:
 
-1. **Project-local**: `.glovebox/snippets/`
-2. **User global**: `~/.glovebox/snippets/`
+1. **Project-local**: `.glovebox/mods/`
+2. **User global**: `~/.glovebox/mods/`
 3. **Embedded** (bundled in binary)
 
-This allows users to override or extend built-in snippets without rebuilding from source.
+This allows users to override or extend built-in mods without rebuilding from source.
 
 ### 3. Layered Image Architecture
 
@@ -44,20 +44,20 @@ This allows users to override or extend built-in snippets without rebuilding fro
 
 | Command | Description |
 |---------|-------------|
-| `glovebox init [--base]` | Initialize profiles with interactive snippet selection |
+| `glovebox init [--base]` | Initialize profiles with interactive mod selection |
 | `glovebox build [--base]` | Generate Dockerfiles and build images |
 | `glovebox run` | Run containers with proper volume mounts |
-| `glovebox add <snippet>` | Add snippets to profiles |
-| `glovebox remove <snippet>` | Remove snippets from profiles |
-| `glovebox list` | List available snippets with descriptions |
+| `glovebox add <mod>` | Add mods to profiles |
+| `glovebox remove <mod>` | Remove mods from profiles |
 | `glovebox status` | Show current profile configurations |
 | `glovebox clone <repo>` | Clone repos and initialize glovebox |
-| `glovebox snippet create <name>` | Scaffold custom snippets |
+| `glovebox mod list` | List available mods with descriptions |
+| `glovebox mod create <name>` | Scaffold custom mods |
 
 ### 5. Profile Management
 
-- YAML profiles track selected snippets
-- Automatic dependency resolution (snippets can require other snippets)
+- YAML profiles track selected mods
+- Automatic dependency resolution (mods can require other mods)
 - Content-based image tagging with SHA hashes for cache invalidation
 
 ### 6. Home Directory Persistence

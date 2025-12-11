@@ -46,8 +46,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	} else {
 		globalPath, _ := profile.GlobalPath()
 		fmt.Printf("  Profile: %s\n", globalPath)
-		fmt.Printf("  Snippets: %d\n", len(globalProfile.Snippets))
-		for _, s := range globalProfile.Snippets {
+		fmt.Printf("  Mods: %d\n", len(globalProfile.Mods))
+		for _, s := range globalProfile.Mods {
 			dim.Printf("    - %s\n", s)
 		}
 
@@ -78,18 +78,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Println("  Run 'glovebox init' to create a project-specific profile.")
 	} else {
 		fmt.Printf("  Profile: %s\n", projectProfile.Path)
-		fmt.Printf("  Snippets: %d\n", len(projectProfile.Snippets))
-		for _, s := range projectProfile.Snippets {
+		fmt.Printf("  Mods: %d\n", len(projectProfile.Mods))
+		for _, s := range projectProfile.Mods {
 			dim.Printf("    - %s\n", s)
 		}
 
-		// Check project Dockerfile - need base snippets for proper generation
+		// Check project Dockerfile - need base mods for proper generation
 		dockerfilePath := projectProfile.DockerfilePath()
-		var baseSnippets []string
+		var baseMods []string
 		if globalProfile != nil {
-			baseSnippets = globalProfile.Snippets
+			baseMods = globalProfile.Mods
 		}
-		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseSnippets, green, yellow, dim)
+		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseMods, green, yellow, dim)
 
 		// Check if image exists
 		imageName := projectProfile.ImageName()
@@ -135,7 +135,7 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 	}
 
 	// Check if profile would generate different content
-	expectedContent, err := generateFunc(p.Snippets)
+	expectedContent, err := generateFunc(p.Mods)
 	if err != nil {
 		return
 	}
@@ -146,7 +146,7 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 	}
 }
 
-func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseSnippets []string, green, yellow, dim *color.Color) {
+func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseMods []string, green, yellow, dim *color.Color) {
 	fmt.Printf("  Dockerfile: %s\n", dockerfilePath)
 
 	// Check if Dockerfile exists
@@ -176,7 +176,7 @@ func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, base
 	}
 
 	// Check if profile would generate different content
-	expectedContent, err := generator.GenerateProject(p.Snippets, baseSnippets)
+	expectedContent, err := generator.GenerateProject(p.Mods, baseMods)
 	if err != nil {
 		return
 	}

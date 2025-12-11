@@ -23,7 +23,7 @@ var (
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Generate Dockerfile and build Docker image",
-	Long: `Generate a Dockerfile from your profile snippets and build the Docker image.
+	Long: `Generate a Dockerfile from your profile mods and build the Docker image.
 
 For the global profile (~/.glovebox/profile.yaml), this builds glovebox:base.
 For project profiles (.glovebox/profile.yaml), this builds a project-specific
@@ -95,7 +95,7 @@ func buildBaseImage(green, yellow *color.Color) error {
 	imageName := "glovebox:base"
 
 	// Generate new Dockerfile content
-	newContent, err := generator.GenerateBase(globalProfile.Snippets)
+	newContent, err := generator.GenerateBase(globalProfile.Mods)
 	if err != nil {
 		return fmt.Errorf("generating Dockerfile: %w", err)
 	}
@@ -134,18 +134,18 @@ func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 	dockerfilePath := p.DockerfilePath()
 	imageName := p.ImageName()
 
-	// Load global profile to get base snippets for filtering
+	// Load global profile to get base mods for filtering
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
 		return fmt.Errorf("loading global profile: %w", err)
 	}
-	var baseSnippets []string
+	var baseMods []string
 	if globalProfile != nil {
-		baseSnippets = globalProfile.Snippets
+		baseMods = globalProfile.Mods
 	}
 
-	// Generate new Dockerfile content, excluding snippets already in base
-	newContent, err := generator.GenerateProject(p.Snippets, baseSnippets)
+	// Generate new Dockerfile content, excluding mods already in base
+	newContent, err := generator.GenerateProject(p.Mods, baseMods)
 	if err != nil {
 		return fmt.Errorf("generating Dockerfile: %w", err)
 	}
@@ -193,8 +193,8 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 
 			// Show instructions for preserving changes
 			fmt.Println("\nTo preserve your manual changes:")
-			fmt.Println("  1. Create a snippet file in .glovebox/snippets/custom/<name>.yaml")
-			fmt.Println("     (or ~/.glovebox/snippets/custom/<name>.yaml for global use)")
+			fmt.Println("  1. Create a mod file in .glovebox/mods/custom/<name>.yaml")
+			fmt.Println("     (or ~/.glovebox/mods/custom/<name>.yaml for global use)")
 			fmt.Println("  2. Add your changes to the appropriate section (apt_packages, run_as_root, etc.)")
 			fmt.Println("  3. Run: glovebox add custom/<name>")
 			fmt.Println("  4. Run: glovebox build")

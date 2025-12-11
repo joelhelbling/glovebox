@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
-	"github.com/joelhelbling/glovebox/internal/snippet"
 	"github.com/spf13/cobra"
 )
 
@@ -67,20 +67,20 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Interactive snippet selection
-	selectedSnippets, err := interactiveSnippetSelection()
+	// Interactive mod selection
+	selectedMods, err := interactiveModSelection()
 	if err != nil {
 		return err
 	}
 
-	if len(selectedSnippets) == 0 {
-		fmt.Println("No snippets selected. Aborted.")
+	if len(selectedMods) == 0 {
+		fmt.Println("No mods selected. Aborted.")
 		return nil
 	}
 
 	// Create and save profile
 	p := profile.NewProfile()
-	p.Snippets = selectedSnippets
+	p.Mods = selectedMods
 
 	if err := p.SaveTo(profilePath); err != nil {
 		return fmt.Errorf("saving profile: %w", err)
@@ -100,10 +100,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func interactiveSnippetSelection() ([]string, error) {
-	snippetsByCategory, err := snippet.ListAll()
+func interactiveModSelection() ([]string, error) {
+	modsByCategory, err := mod.ListAll()
 	if err != nil {
-		return nil, fmt.Errorf("listing snippets: %w", err)
+		return nil, fmt.Errorf("listing mods: %w", err)
 	}
 
 	// Always include base
@@ -115,7 +115,7 @@ func interactiveSnippetSelection() ([]string, error) {
 
 	// Sort categories for consistent ordering
 	var categories []string
-	for cat := range snippetsByCategory {
+	for cat := range modsByCategory {
 		if cat == "core" {
 			continue // Skip core (base is auto-included)
 		}
@@ -123,21 +123,21 @@ func interactiveSnippetSelection() ([]string, error) {
 	}
 	sort.Strings(categories)
 
-	fmt.Println("\nSelect snippets for your glovebox environment.")
+	fmt.Println("\nSelect mods for your glovebox environment.")
 	fmt.Println("Base dependencies are automatically included.\n")
 
 	for _, category := range categories {
-		snippets := snippetsByCategory[category]
-		sort.Strings(snippets)
+		mods := modsByCategory[category]
+		sort.Strings(mods)
 
 		bold.Printf("%s:\n", strings.Title(category))
 
 		// Display options
-		for i, id := range snippets {
-			s, err := snippet.Load(id)
+		for i, id := range mods {
+			m, err := mod.Load(id)
 			desc := ""
 			if err == nil {
-				desc = s.Description
+				desc = m.Description
 			}
 			fmt.Printf("  %d) %-20s", i+1, id)
 			dim.Printf(" %s\n", desc)
@@ -158,11 +158,11 @@ func interactiveSnippetSelection() ([]string, error) {
 		for _, part := range parts {
 			part = strings.TrimSpace(part)
 			num, err := strconv.Atoi(part)
-			if err != nil || num < 1 || num > len(snippets) {
+			if err != nil || num < 1 || num > len(mods) {
 				fmt.Printf("  Invalid selection: %s (skipped)\n", part)
 				continue
 			}
-			selected = append(selected, snippets[num-1])
+			selected = append(selected, mods[num-1])
 		}
 		fmt.Println()
 	}

@@ -12,7 +12,7 @@ Glovebox gives you a sandboxed Docker environment that actually feels like home.
 
 **What makes it different:**
 
-- **Composable snippets** - Mix and match shells, editors, languages, and AI tools
+- **Composable mods** - Mix and match shells, editors, languages, and AI tools
 - **Layered images** - Build once, extend per-project
 - **Persistent volumes** - Your shell history, tool configs, and installed runtimes survive rebuilds
 - **First-run provisioning** - Heavy tools install once, then persist
@@ -70,16 +70,16 @@ Glovebox uses a **layered image approach**:
 └─────────────────────────────┘
 ```
 
-### Build-time vs Post-install Snippets
+### Build-time vs Post-install Mods
 
-Snippets can be installed at two different phases:
+Mods can be installed at two different phases:
 
 | Phase | When | Use Case |
 |-------|------|----------|
 | **build** (default) | During `docker build` | Core tools, shells, package managers |
 | **post_install** | First container run | Tools that benefit from volume persistence |
 
-Post-install snippets (like AI coding assistants and editors) are installed on first container start:
+Post-install mods (like AI coding assistants and editors) are installed on first container start:
 
 ```
 ===========================================
@@ -125,7 +125,7 @@ Glovebox balances two competing concerns:
 | Language runtimes | Mise on volume | Project-specific versions |
 | Your code | Mounted from host | Always current, never copied |
 
-**Source of truth:** Your profile and snippets define what *should* be installed. The volume is a cache. If you delete the volume and rebuild, you should get a fully functional environment—it just might take a minute on first boot.
+**Source of truth:** Your profile and mods define what *should* be installed. The volume is a cache. If you delete the volume and rebuild, you should get a fully functional environment—it just might take a minute on first boot.
 
 ## Commands
 
@@ -133,24 +133,24 @@ Glovebox balances two competing concerns:
 |---------|-------------|
 | `glovebox init --base` | Create base profile (~/.glovebox/profile.yaml) |
 | `glovebox init` | Create project-specific profile (.glovebox/profile.yaml) |
-| `glovebox add <snippet>` | Add a snippet to your profile |
-| `glovebox remove <snippet>` | Remove a snippet from your profile |
+| `glovebox add <mod>` | Add a mod to your profile |
+| `glovebox remove <mod>` | Remove a mod from your profile |
 | `glovebox build --base` | Build the base image from base profile |
 | `glovebox build` | Build project image (or base if no project profile) |
 | `glovebox build --generate-only` | Only generate Dockerfile, don't build |
 | `glovebox status` | Show profile and image status |
 | `glovebox run [directory]` | Run glovebox container |
 | `glovebox clone <repo>` | Clone a repo and start glovebox in it |
-| `glovebox snippet list` | List all available snippets (alias: `ls`) |
-| `glovebox snippet cat <id>` | Output a snippet's raw YAML to stdout |
-| `glovebox snippet create <name>` | Create a new custom snippet from template |
+| `glovebox mod list` | List all available mods (alias: `ls`) |
+| `glovebox mod cat <id>` | Output a mod's raw YAML to stdout |
+| `glovebox mod create <name>` | Create a new custom mod from template |
 
-## Composable Snippets
+## Composable Mods
 
-Glovebox uses a snippet-based system to compose your development environment:
+Glovebox uses a mod-based system to compose your development environment:
 
 ```bash
-$ glovebox snippet list
+$ glovebox mod list
 
 ai:
   ai/claude-code       Anthropic's Claude Code CLI assistant
@@ -209,7 +209,7 @@ cd ~/projects/special-project
 # Create a project profile
 glovebox init
 
-# Add project-specific snippets
+# Add project-specific mods
 glovebox add languages/python
 
 # Build and run
@@ -242,7 +242,7 @@ Each project gets its own Docker volume for the container's home directory (`/ho
 
 ### Working with Mise and Direnv
 
-The container has mise installed (via snippet), but specific language versions are installed on-demand and cached in the volume:
+The container has mise installed (via mod), but specific language versions are installed on-demand and cached in the volume:
 
 ```bash
 # In your project's .envrc
@@ -266,18 +266,18 @@ Additionally, these config directories are mounted read-only from your host:
 - `~/.anthropic` → `/home/ubuntu/.anthropic`
 - `~/.config/gemini` → `/home/ubuntu/.config/gemini`
 
-## Creating Custom Snippets
+## Creating Custom Mods
 
-Custom snippets can be placed in two locations:
+Custom mods can be placed in two locations:
 
 | Location | Scope | Path |
 |----------|-------|------|
-| Project-local | Only this project | `.glovebox/snippets/<name>.yaml` |
-| User base | All your projects | `~/.glovebox/snippets/<name>.yaml` |
+| Project-local | Only this project | `.glovebox/mods/<name>.yaml` |
+| User base | All your projects | `~/.glovebox/mods/<name>.yaml` |
 
-Local snippets take precedence over embedded ones, so you can override built-in snippets if needed.
+Local mods take precedence over embedded ones, so you can override built-in mods if needed.
 
-### Snippet Structure
+### Mod Structure
 
 Create a YAML file with the following structure:
 
@@ -287,7 +287,7 @@ description: My custom tool configuration
 category: custom
 install_phase: build  # "build" (default) or "post_install"
 requires:
-  - base  # dependencies on other snippets
+  - base  # dependencies on other mods
 
 apt_repos:
   - ppa:some/repo  # APT repositories to add
@@ -315,25 +315,25 @@ Use `install_phase: post_install` for tools installed via homebrew or mise that 
 
 **Add to your base image** (available everywhere):
 ```bash
-mkdir -p ~/.glovebox/snippets/custom
-# Create ~/.glovebox/snippets/custom/my-tool.yaml
+mkdir -p ~/.glovebox/mods/custom
+# Create ~/.glovebox/mods/custom/my-tool.yaml
 glovebox add custom/my-tool
 glovebox build --base
 ```
 
 **Add to a project** (only for this project):
 ```bash
-mkdir -p .glovebox/snippets/custom
-# Create .glovebox/snippets/custom/my-tool.yaml
+mkdir -p .glovebox/mods/custom
+# Create .glovebox/mods/custom/my-tool.yaml
 glovebox add custom/my-tool
 glovebox build
 ```
 
-**Override a built-in snippet** (e.g., customize neovim):
+**Override a built-in mod** (e.g., customize neovim):
 ```bash
-# Copy the built-in snippet as a starting point
-mkdir -p ~/.glovebox/snippets/editors
-glovebox snippet cat editors/neovim > ~/.glovebox/snippets/editors/neovim.yaml
+# Copy the built-in mod as a starting point
+mkdir -p ~/.glovebox/mods/editors
+glovebox mod cat editors/neovim > ~/.glovebox/mods/editors/neovim.yaml
 
 # Edit to customize, then rebuild
 glovebox build --base
@@ -345,10 +345,10 @@ glovebox build --base
 |------|---------|
 | `~/.glovebox/profile.yaml` | Global profile (base image definition) |
 | `~/.glovebox/Dockerfile` | Generated base Dockerfile |
-| `~/.glovebox/snippets/` | Custom global snippets |
+| `~/.glovebox/mods/` | Custom global mods |
 | `.glovebox/profile.yaml` | Project profile (extends base) |
 | `.glovebox/Dockerfile` | Generated project Dockerfile |
-| `.glovebox/snippets/` | Custom project snippets |
+| `.glovebox/mods/` | Custom project mods |
 
 ## Roadmap
 
