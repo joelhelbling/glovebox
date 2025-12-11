@@ -43,11 +43,20 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	bold.Println("Base Image (glovebox:base):")
+	bold.Println("Base Image:")
 	if globalProfile == nil {
 		yellow.Println("  Profile: Not configured")
 		fmt.Println("  Run 'glovebox init --global' to create.")
 	} else {
+		// Check if image exists
+		fmt.Print("  Image: glovebox:base")
+		if imageExists("glovebox:base") {
+			green.Println(" ✓")
+		} else {
+			yellow.Println(" (not built)")
+			fmt.Println("  Run 'glovebox build --base' to build.")
+		}
+
 		globalPath, _ := profile.GlobalPath()
 		fmt.Printf("  Profile: %s\n", globalPath)
 		fmt.Printf("  Mods: %d\n", len(globalProfile.Mods))
@@ -58,14 +67,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		// Check base Dockerfile
 		dockerfilePath := globalProfile.DockerfilePath()
 		showDockerfileStatus(globalProfile, dockerfilePath, generator.GenerateBase, green, yellow, dim)
-
-		// Check if image exists
-		if imageExists("glovebox:base") {
-			green.Println("  Image: Built ✓")
-		} else {
-			yellow.Println("  Image: Not built")
-			fmt.Println("  Run 'glovebox build --base' to build.")
-		}
 	}
 
 	fmt.Println()
@@ -81,6 +82,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		dim.Println("  Profile: None (will use glovebox:base)")
 		fmt.Println("  Run 'glovebox init' to create a project-specific profile.")
 	} else {
+		// Check if image exists
+		imageName := projectProfile.ImageName()
+		fmt.Printf("  Image: %s", imageName)
+		if imageExists(imageName) {
+			green.Println(" ✓")
+		} else {
+			yellow.Println(" (not built)")
+			fmt.Println("  Run 'glovebox build' to build.")
+		}
+
 		fmt.Printf("  Profile: %s\n", projectProfile.Path)
 		fmt.Printf("  Mods: %d\n", len(projectProfile.Mods))
 		for _, s := range projectProfile.Mods {
@@ -94,16 +105,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			baseMods = globalProfile.Mods
 		}
 		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseMods, green, yellow, dim)
-
-		// Check if image exists
-		imageName := projectProfile.ImageName()
-		fmt.Printf("  Image name: %s\n", imageName)
-		if imageExists(imageName) {
-			green.Println("  Image: Built ✓")
-		} else {
-			yellow.Println("  Image: Not built")
-			fmt.Println("  Run 'glovebox build' to build.")
-		}
 	}
 
 	// Show volumes section
