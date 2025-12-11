@@ -1,0 +1,37 @@
+name: homebrew
+description: The Missing Package Manager for macOS (or Linux)
+category: tool
+requires:
+  - base
+
+run_as_root: |
+  # Install dependencies for Homebrew
+  apt-get install -y build-essential procps curl file git
+
+run_as_user: |
+  # Install Homebrew using the official installer
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # Configure Homebrew for bash
+  touch ~/.bashrc
+  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+
+  # Configure Homebrew for zsh (if zsh config dir exists)
+  if [ -d ~/.config/zsh ] || [ -f ~/.zshrc ]; then
+    touch ~/.zshrc
+    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
+  fi
+
+  # Configure Homebrew for fish (if fish config dir exists)
+  if [ -d ~/.config/fish ]; then
+    mkdir -p ~/.config/fish/conf.d
+    echo 'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' > ~/.config/fish/conf.d/homebrew.fish
+  fi
+
+env:
+  HOMEBREW_PREFIX: /home/linuxbrew/.linuxbrew
+  HOMEBREW_CELLAR: /home/linuxbrew/.linuxbrew/Cellar
+  HOMEBREW_REPOSITORY: /home/linuxbrew/.linuxbrew/Homebrew
+  PATH: /home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH
+  MANPATH: /home/linuxbrew/.linuxbrew/share/man:$MANPATH
+  INFOPATH: /home/linuxbrew/.linuxbrew/share/info:$INFOPATH

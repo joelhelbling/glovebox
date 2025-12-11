@@ -1,3 +1,9 @@
 mise.toml
 .envrc
 .claude/settings.local.json
+
+# Go build artifacts
+bin/glovebox
+
+# Local glovebox profile (project-specific)
+.glovebox/
