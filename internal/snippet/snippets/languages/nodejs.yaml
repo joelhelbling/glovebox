@@ -1,5 +1,5 @@
 name: nodejs
-description: Node.js JavaScript runtime (v22 LTS)
+description: Node.js JavaScript runtime (LTS)
 category: language
 requires:
   - tools/mise

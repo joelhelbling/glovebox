@@ -1,22 +1,12 @@
 name: helix
 description: Helix - a post-modern modal text editor
 category: editor
+install_phase: post_install
 requires:
-  - base
+  - tools/homebrew
 
-run_as_root: |
-  ARCH=$(dpkg --print-architecture)
-  if [ "$ARCH" = "amd64" ]; then
-      HELIX_ARCH="x86_64"
-  elif [ "$ARCH" = "arm64" ]; then
-      HELIX_ARCH="aarch64"
-  else
-      echo "Unsupported architecture: $ARCH" && exit 1
-  fi
-  curl -fsSL -o helix.tar.xz "https://github.com/helix-editor/helix/releases/latest/download/helix-25.01-${HELIX_ARCH}-linux.tar.xz"
-  tar -C /opt -xf helix.tar.xz
-  rm helix.tar.xz
-  ln -s /opt/helix-*/hx /usr/local/bin/hx
+run_as_user: |
+  brew install helix
 
 env:
   EDITOR: hx

@@ -1,11 +1,12 @@
 name: vim
 description: Vim - the ubiquitous text editor
 category: editor
+install_phase: post_install
 requires:
-  - base
+  - tools/homebrew
 
-apt_packages:
-  - vim
+run_as_user: |
+  brew install vim
 
 env:
   EDITOR: vim
