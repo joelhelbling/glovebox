@@ -15,9 +15,12 @@ var addCmd = &cobra.Command{
 	Short: "Add a snippet to your profile",
 	Long: `Add a snippet to your glovebox profile.
 
-Example:
+Run 'glovebox list' to see available snippets.
+
+Examples:
   glovebox add shells/fish
-  glovebox add ai/claude-code`,
+  glovebox add ai/claude-code
+  glovebox add custom/my-tool`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAdd,
 }
