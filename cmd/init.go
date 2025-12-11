@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	initGlobal bool
+	initBase bool
 )
 
 var initCmd = &cobra.Command{
@@ -23,24 +23,24 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new glovebox profile",
 	Long: `Initialize a new glovebox profile interactively.
 
-Use --global to create the base image profile (~/.glovebox/profile.yaml).
+Use --base to create the base image profile (~/.glovebox/profile.yaml).
 This defines your standard development environment with your preferred
 shell, editor, and tools. Build it once with 'glovebox build --base'.
 
-Without --global, creates a project-specific profile (.glovebox/profile.yaml)
+Without --base, creates a project-specific profile (.glovebox/profile.yaml)
 that extends the base image with additional tools for that project.`,
 	RunE: runInit,
 }
 
 func init() {
-	initCmd.Flags().BoolVarP(&initGlobal, "global", "g", false, "Create global profile instead of project-local")
+	initCmd.Flags().BoolVarP(&initBase, "base", "b", false, "Create base profile instead of project-local")
 	rootCmd.AddCommand(initCmd)
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
 	// Determine profile path
 	var profilePath string
-	if initGlobal {
+	if initBase {
 		var err error
 		profilePath, err = profile.GlobalPath()
 		if err != nil {
@@ -89,7 +89,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	green := color.New(color.FgGreen)
 	green.Printf("✓ Profile created at %s\n", profilePath)
 	fmt.Println("\nNext steps:")
-	if initGlobal {
+	if initBase {
 		fmt.Println("  glovebox build --base   # Build the base image (glovebox:base)")
 		fmt.Println("  glovebox run            # Run glovebox in any directory")
 	} else {
