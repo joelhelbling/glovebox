@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
@@ -65,10 +66,26 @@ so it shows the version that would actually be used.`,
 	RunE: runSnippetCat,
 }
 
+var snippetListCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
+	Short:   "List available snippets",
+	Long: `List all available snippets that can be added to your glovebox profile.
+
+This shows built-in snippets plus any custom snippets found in:
+  ~/.glovebox/snippets/       Global custom snippets
+  .glovebox/snippets/         Project-local custom snippets
+
+To create a custom snippet, run:
+  glovebox snippet create <name>`,
+	RunE: runSnippetList,
+}
+
 func init() {
 	snippetCreateCmd.Flags().BoolVarP(&snippetGlobal, "global", "g", false, "Create in global snippets directory")
 	snippetCmd.AddCommand(snippetCreateCmd)
 	snippetCmd.AddCommand(snippetCatCmd)
+	snippetCmd.AddCommand(snippetListCmd)
 	rootCmd.AddCommand(snippetCmd)
 }
 
@@ -188,4 +205,45 @@ func runSnippetCat(cmd *cobra.Command, args []string) error {
 	// Write raw YAML to stdout (no trailing newline if content already has one)
 	_, err = os.Stdout.Write(data)
 	return err
+}
+
+func runSnippetList(cmd *cobra.Command, args []string) error {
+	snippetsByCategory, err := snippet.ListAll()
+	if err != nil {
+		return fmt.Errorf("listing snippets: %w", err)
+	}
+
+	if len(snippetsByCategory) == 0 {
+		fmt.Println("No snippets found.")
+		return nil
+	}
+
+	// Sort categories for consistent output
+	var categories []string
+	for cat := range snippetsByCategory {
+		categories = append(categories, cat)
+	}
+	sort.Strings(categories)
+
+	bold := color.New(color.Bold)
+	dim := color.New(color.Faint)
+
+	for _, category := range categories {
+		snippets := snippetsByCategory[category]
+		sort.Strings(snippets)
+
+		bold.Printf("\n%s:\n", category)
+		for _, id := range snippets {
+			s, err := snippet.Load(id)
+			if err != nil {
+				fmt.Printf("  %s (error loading)\n", id)
+				continue
+			}
+			fmt.Printf("  %-20s", id)
+			dim.Printf(" %s\n", s.Description)
+		}
+	}
+	fmt.Println()
+
+	return nil
 }

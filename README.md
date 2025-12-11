@@ -96,7 +96,6 @@ Provisioning complete!
 |---------|-------------|
 | `glovebox init --base` | Create base profile (~/.glovebox/profile.yaml) |
 | `glovebox init` | Create project-specific profile (.glovebox/profile.yaml) |
-| `glovebox list` | List all available snippets |
 | `glovebox add <snippet>` | Add a snippet to your profile |
 | `glovebox remove <snippet>` | Remove a snippet from your profile |
 | `glovebox build --base` | Build the base image from base profile |
@@ -105,6 +104,7 @@ Provisioning complete!
 | `glovebox status` | Show profile and image status |
 | `glovebox run [directory]` | Run glovebox container |
 | `glovebox clone <repo>` | Clone a repo and start glovebox in it |
+| `glovebox snippet list` | List all available snippets (alias: `ls`) |
 | `glovebox snippet cat <id>` | Output a snippet's raw YAML to stdout |
 | `glovebox snippet create <name>` | Create a new custom snippet from template |
 
@@ -113,7 +113,7 @@ Provisioning complete!
 Glovebox uses a snippet-based system to compose your development environment:
 
 ```bash
-$ glovebox list
+$ glovebox snippet list
 
 ai:
   ai/claude-code       Anthropic's Claude Code CLI assistant
