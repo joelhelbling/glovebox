@@ -4,6 +4,19 @@
 
 A composable, dockerized development sandbox for working with dangerous things like agentic coding tools and npm packages.
 
+## Why Glovebox?
+
+AI coding assistants are powerful, but they run code. So do npm packages, pip installs, and that sketchy shell script you found on Stack Overflow. Running untrusted code on your development machine is a risk—but constantly spinning up VMs or fighting with container configs kills your flow.
+
+Glovebox gives you a sandboxed Docker environment that actually feels like home. Your shell, your editor, your tools—all running safely inside a container with your project mounted. Think of it as glamping on Jurassic Island: even in mortal danger, you still get your Nespresso.
+
+**What makes it different:**
+
+- **Composable snippets** - Mix and match shells, editors, languages, and AI tools
+- **Layered images** - Build once, extend per-project
+- **Persistent volumes** - Your shell history, tool configs, and installed runtimes survive rebuilds
+- **First-run provisioning** - Heavy tools install once, then persist
+
 ## Prerequisites
 
 - Docker
@@ -89,6 +102,30 @@ Provisioning complete!
 - Smaller Docker images (tools not baked into layers)
 - Installations persist in home volume across image rebuilds
 - Faster iteration on base image without reinstalling tools
+
+**Implementation details:**
+
+- Post-install script location: `/usr/local/lib/glovebox/post-install.sh`
+- First-run marker file: `~/.glovebox-initialized`
+
+## Design Philosophy
+
+Glovebox balances two competing concerns:
+
+1. **Don't nom my SSD** - Docker images and volumes can balloon quickly. We minimize image size by using layered builds and deferring tool installation to first-run when it makes sense.
+
+2. **Don't waste my time** - Nobody wants to wait for homebrew to install every time they start a container. Persistent volumes cache your installed tools, shell history, and configurations.
+
+**The balance:**
+
+| What | Where | Why |
+|------|-------|-----|
+| Shells, package managers | Baked into image | Fast, rarely change |
+| Editors, AI tools | Post-install (volume) | Large, benefit from persistence |
+| Language runtimes | Mise on volume | Project-specific versions |
+| Your code | Mounted from host | Always current, never copied |
+
+**Source of truth:** Your profile and snippets define what *should* be installed. The volume is a cache. If you delete the volume and rebuild, you should get a fully functional environment—it just might take a minute on first boot.
 
 ## Commands
 
@@ -184,24 +221,28 @@ glovebox run
 
 ### Home Directory Volume
 
-Each project gets its own Docker volume for the container's home directory. This persists:
+Each project gets its own Docker volume for the container's home directory (`/home/ubuntu`). The volume is named `glovebox-<dirname>-<hash>-home`.
 
-- Shell history
-- Mise-installed language versions
-- Tool configurations
-- Any files you create in `~`
+**What lives in the volume:**
 
-The volume is named `glovebox-<dirname>-<hash>-home`.
+| Path | Contents |
+|------|----------|
+| `~/.local/share/mise/` | Mise-installed language runtimes |
+| `/home/linuxbrew/.linuxbrew/` | Homebrew and installed packages |
+| `~/.config/` | Tool configurations |
+| `~/.bash_history`, etc. | Shell history |
+| `~/.glovebox-initialized` | First-run marker file |
 
-### Philosophy: Dockerfile as Source of Truth
+**What lives in the image:**
 
-While the home volume provides persistence, **treat your Dockerfile as the source of truth**:
+| Path | Contents |
+|------|----------|
+| `/usr/bin/`, `/usr/local/bin/` | APT-installed tools, shells |
+| `/usr/local/lib/glovebox/` | Post-install script |
 
-- If you want a tool to always be available, add it via a snippet
-- The home volume is a cache, not permanent storage
-- Deleting the volume and re-running should give you a fully functional environment
+### Working with Mise and Direnv
 
-This works well with tools like mise and direnv:
+The container has mise installed (via snippet), but specific language versions are installed on-demand and cached in the volume:
 
 ```bash
 # In your project's .envrc
@@ -209,7 +250,7 @@ mise install      # Installs versions from mise.toml
 mise activate     # Activates the environment
 ```
 
-The container has mise/direnv installed (via snippets), but the specific language versions are installed on-demand and cached in the volume.
+This means your first `cd` into a project directory might trigger installs, but subsequent runs are instant.
 
 ## API Keys
 
@@ -308,3 +349,12 @@ glovebox build --base
 | `.glovebox/profile.yaml` | Project profile (extends base) |
 | `.glovebox/Dockerfile` | Generated project Dockerfile |
 | `.glovebox/snippets/` | Custom project snippets |
+
+## Roadmap
+
+Features under consideration:
+
+- **Dotfiles integration** - Automatically sync your dotfiles into the container
+- **SSH key forwarding** - Securely access your SSH keys for git operations
+- **Networking affordances** - Connect to host services (Ollama, LM Studio) and other containers
+- **GPU passthrough** - Access host GPU for local AI model inference
