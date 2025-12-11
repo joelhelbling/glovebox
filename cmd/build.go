@@ -134,8 +134,18 @@ func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 	dockerfilePath := p.DockerfilePath()
 	imageName := p.ImageName()
 
-	// Generate new Dockerfile content
-	newContent, err := generator.GenerateProject(p.Snippets)
+	// Load global profile to get base snippets for filtering
+	globalProfile, err := profile.LoadGlobal()
+	if err != nil {
+		return fmt.Errorf("loading global profile: %w", err)
+	}
+	var baseSnippets []string
+	if globalProfile != nil {
+		baseSnippets = globalProfile.Snippets
+	}
+
+	// Generate new Dockerfile content, excluding snippets already in base
+	newContent, err := generator.GenerateProject(p.Snippets, baseSnippets)
 	if err != nil {
 		return fmt.Errorf("generating Dockerfile: %w", err)
 	}

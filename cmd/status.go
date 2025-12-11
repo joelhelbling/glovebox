@@ -83,9 +83,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			dim.Printf("    - %s\n", s)
 		}
 
-		// Check project Dockerfile
+		// Check project Dockerfile - need base snippets for proper generation
 		dockerfilePath := projectProfile.DockerfilePath()
-		showDockerfileStatus(projectProfile, dockerfilePath, generator.GenerateProject, green, yellow, dim)
+		var baseSnippets []string
+		if globalProfile != nil {
+			baseSnippets = globalProfile.Snippets
+		}
+		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseSnippets, green, yellow, dim)
 
 		// Check if image exists
 		imageName := projectProfile.ImageName()
@@ -132,6 +136,47 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 
 	// Check if profile would generate different content
 	expectedContent, err := generateFunc(p.Snippets)
+	if err != nil {
+		return
+	}
+	expectedDigest := digest.Calculate(expectedContent)
+
+	if expectedDigest != p.Build.DockerfileDigest {
+		yellow.Println("    Note: Profile has changed since last build")
+	}
+}
+
+func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseSnippets []string, green, yellow, dim *color.Color) {
+	fmt.Printf("  Dockerfile: %s\n", dockerfilePath)
+
+	// Check if Dockerfile exists
+	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
+		yellow.Println("    Status: Not generated")
+		return
+	}
+
+	// Check if we have build info
+	if p.Build.DockerfileDigest == "" {
+		yellow.Println("    Status: Exists but not tracked")
+		return
+	}
+
+	// Compare digests
+	currentDigest, err := digest.CalculateFile(dockerfilePath)
+	if err != nil {
+		yellow.Printf("    Status: Error reading (%v)\n", err)
+		return
+	}
+
+	if currentDigest == p.Build.DockerfileDigest {
+		green.Println("    Status: Up to date ✓")
+		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Format("2006-01-02 15:04:05 UTC"))
+	} else {
+		yellow.Println("    Status: Modified since generation ⚠")
+	}
+
+	// Check if profile would generate different content
+	expectedContent, err := generator.GenerateProject(p.Snippets, baseSnippets)
 	if err != nil {
 		return
 	}
