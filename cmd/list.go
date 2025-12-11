@@ -12,8 +12,15 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available snippets",
-	Long:  `List all available snippets that can be added to your glovebox profile.`,
-	RunE:  runList,
+	Long: `List all available snippets that can be added to your glovebox profile.
+
+This shows built-in snippets plus any custom snippets found in:
+  ~/.glovebox/snippets/       Global custom snippets
+  .glovebox/snippets/         Project-local custom snippets
+
+To create a custom snippet, run:
+  glovebox snippet create <name>`,
+	RunE: runList,
 }
 
 func init() {

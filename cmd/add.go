@@ -17,6 +17,9 @@ var addCmd = &cobra.Command{
 
 Run 'glovebox list' to see available snippets.
 
+To create your own custom snippet, run:
+  glovebox snippet create <name>
+
 Examples:
   glovebox add shells/fish
   glovebox add ai/claude-code
