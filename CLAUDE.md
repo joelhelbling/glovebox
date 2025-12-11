@@ -6,54 +6,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NEVER skip GPG signing.** All commits must be signed. If GPG signing times out, alert the user to touch their 2FA key and retry the commit. Do not use `--no-gpg-sign` under any circumstances.
 
-## Build Commands
+## Development Commands
+
+Use `make help` to see all available targets. Key commands:
 
 ```bash
-# Build the CLI binary with version from git tags (requires mise for Go)
-mise exec -- go build -ldflags "-X github.com/joelhelbling/glovebox/cmd.Version=$(git describe --tags --always --dirty)" -o bin/glovebox .
+make build      # Build binary with version from git tags
+make test       # Run tests
+make lint       # Run fmt and vet
+make install    # Build and install to /usr/local/bin
+make version    # Show current version string
+make all        # Run lint, test, and build
+```
 
-# Build and test a glovebox Docker image
+### Testing Glovebox Docker Images
+
+```bash
 ./bin/glovebox build --base    # Build base image from ~/.glovebox/profile.yaml
 ./bin/glovebox build           # Build project image from .glovebox/profile.yaml
 ```
 
 ## Versioning and Releases
 
-Glovebox uses git tag-based versioning. The version is injected at build time via `-ldflags`.
+Glovebox uses git tag-based versioning. Version is injected automatically at build time.
 
 ### Version Format
 
 - On a tag: `v0.2.0`
 - After commits: `v0.2.0-3-g1a2b3c4` (3 commits after v0.2.0, at commit 1a2b3c4)
 - With uncommitted changes: `v0.2.0-3-g1a2b3c4-dirty`
-- No tags: just the commit sha
 
 ### Creating a Release
 
 ```bash
-# 1. Ensure all changes are committed
-git status
+# Ensure all changes are committed first, then:
+make release V=v0.3.0
 
-# 2. Create an annotated tag (preferred) or lightweight tag
-git tag -a v0.3.0 -m "Release v0.3.0: brief description"
-# or: git tag v0.3.0
+# This will:
+# 1. Verify working directory is clean
+# 2. Create annotated tag v0.3.0
+# 3. Build binary with that version
+# 4. Print instructions for pushing
 
-# 3. Build the binary (version will be v0.3.0)
-mise exec -- go build -ldflags "-X github.com/joelhelbling/glovebox/cmd.Version=$(git describe --tags --always --dirty)" -o bin/glovebox .
-
-# 4. Verify
-./bin/glovebox --version
-
-# 5. Push the tag
-git push origin v0.3.0
+# Push commit and tag:
+git push origin main && git push origin v0.3.0
 ```
 
 ### Checking Current Version
 
 ```bash
-./bin/glovebox --version
-# or
-./bin/glovebox -v
+make version           # Show version that would be built
+./bin/glovebox -v      # Show version of built binary
 ```
 
 ## Architecture
