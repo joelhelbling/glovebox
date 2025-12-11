@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,8 @@ const (
 type BuildInfo struct {
 	LastBuiltAt      time.Time `yaml:"last_built_at,omitempty"`
 	DockerfileDigest string    `yaml:"dockerfile_digest,omitempty"`
+	ImageName        string    `yaml:"image_name,omitempty"`
+	BaseDigest       string    `yaml:"base_digest,omitempty"` // For project profiles, tracks when base changed
 }
 
 // Profile represents a glovebox configuration
@@ -29,6 +32,8 @@ type Profile struct {
 
 	// Path is not serialized - it's the location this profile was loaded from
 	Path string `yaml:"-"`
+	// IsGlobal indicates if this is the global (base) profile
+	IsGlobal bool `yaml:"-"`
 }
 
 // NewProfile creates a new empty profile
@@ -69,6 +74,11 @@ func Load(path string) (*Profile, error) {
 	}
 
 	p.Path = path
+
+	// Determine if this is a global profile
+	globalPath, _ := GlobalPath()
+	p.IsGlobal = (path == globalPath)
+
 	return &p, nil
 }
 
@@ -159,4 +169,73 @@ func (p *Profile) HasSnippet(id string) bool {
 func (p *Profile) UpdateBuildInfo(digest string) {
 	p.Build.LastBuiltAt = time.Now().UTC()
 	p.Build.DockerfileDigest = digest
+}
+
+// ImageName returns the Docker image name for this profile
+func (p *Profile) ImageName() string {
+	if p.Build.ImageName != "" {
+		return p.Build.ImageName
+	}
+
+	if p.IsGlobal {
+		return "glovebox:base"
+	}
+
+	// Generate project image name from directory
+	dir := filepath.Dir(filepath.Dir(p.Path)) // Go up from .glovebox/profile.yaml
+	return GenerateImageName(dir)
+}
+
+// GenerateImageName creates a Docker image name from a directory path
+// Format: glovebox:<dirname>-<shorthash>
+func GenerateImageName(dir string) string {
+	absPath, err := filepath.Abs(dir)
+	if err != nil {
+		absPath = dir
+	}
+
+	dirName := filepath.Base(absPath)
+	hash := sha256.Sum256([]byte(absPath))
+	shortHash := fmt.Sprintf("%x", hash)[:7]
+
+	return fmt.Sprintf("glovebox:%s-%s", dirName, shortHash)
+}
+
+// GlobalDir returns the global glovebox directory path
+func GlobalDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+	return filepath.Join(home, GlobalProfileDir), nil
+}
+
+// ProjectDir returns the project glovebox directory path
+func ProjectDir(dir string) string {
+	return filepath.Join(dir, ProjectProfileDir)
+}
+
+// DockerfilePath returns the path where the Dockerfile should be generated
+func (p *Profile) DockerfilePath() string {
+	if p.IsGlobal {
+		globalDir, _ := GlobalDir()
+		return filepath.Join(globalDir, "Dockerfile")
+	}
+	// Project Dockerfile lives in .glovebox/Dockerfile
+	return filepath.Join(filepath.Dir(p.Path), "Dockerfile")
+}
+
+// LoadGlobal loads the global profile (for base image)
+func LoadGlobal() (*Profile, error) {
+	globalPath, err := GlobalPath()
+	if err != nil {
+		return nil, err
+	}
+	return Load(globalPath)
+}
+
+// LoadProject loads the project profile from a directory
+func LoadProject(dir string) (*Profile, error) {
+	projectPath := ProjectPath(dir)
+	return Load(projectPath)
 }

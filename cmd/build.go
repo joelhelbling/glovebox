@@ -17,12 +17,19 @@ import (
 var (
 	buildForce    bool
 	buildGenerate bool
+	buildBase     bool
 )
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Generate Dockerfile and build Docker image",
 	Long: `Generate a Dockerfile from your profile snippets and build the Docker image.
+
+For the global profile (~/.glovebox/profile.yaml), this builds glovebox:base.
+For project profiles (.glovebox/profile.yaml), this builds a project-specific
+image that extends glovebox:base.
+
+Use --base to explicitly build only the base image.
 
 If the Dockerfile has been modified since last generation, you'll be prompted
 to choose how to proceed.`,
@@ -32,6 +39,7 @@ to choose how to proceed.`,
 func init() {
 	buildCmd.Flags().BoolVarP(&buildForce, "force", "f", false, "Force regeneration without prompts")
 	buildCmd.Flags().BoolVar(&buildGenerate, "generate-only", false, "Only generate Dockerfile, don't build image")
+	buildCmd.Flags().BoolVar(&buildBase, "base", false, "Build only the base image (from global profile)")
 	rootCmd.AddCommand(buildCmd)
 }
 
@@ -41,24 +49,106 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting current directory: %w", err)
 	}
 
-	p, err := profile.LoadEffective(cwd)
+	yellow := color.New(color.FgYellow)
+	green := color.New(color.FgGreen)
+
+	// Determine what to build
+	if buildBase {
+		// Explicitly building base image
+		return buildBaseImage(green, yellow)
+	}
+
+	// Check for project profile first
+	projectProfile, err := profile.LoadProject(cwd)
 	if err != nil {
 		return err
 	}
 
-	if p == nil {
-		return fmt.Errorf("no profile found. Run 'glovebox init' first")
+	if projectProfile != nil {
+		// Project profile exists - build project image (which requires base)
+		return buildProjectImage(projectProfile, green, yellow)
 	}
 
-	dockerfilePath := "Dockerfile"
-	yellow := color.New(color.FgYellow)
-	green := color.New(color.FgGreen)
+	// No project profile - check for global profile and build base
+	globalProfile, err := profile.LoadGlobal()
+	if err != nil {
+		return err
+	}
+
+	if globalProfile != nil {
+		return buildBaseImage(green, yellow)
+	}
+
+	return fmt.Errorf("no profile found. Run 'glovebox init' or 'glovebox init --global' first")
+}
+
+func buildBaseImage(green, yellow *color.Color) error {
+	globalProfile, err := profile.LoadGlobal()
+	if err != nil {
+		return err
+	}
+	if globalProfile == nil {
+		return fmt.Errorf("no global profile found. Run 'glovebox init --global' first")
+	}
+
+	dockerfilePath := globalProfile.DockerfilePath()
+	imageName := "glovebox:base"
 
 	// Generate new Dockerfile content
-	newContent, err := generator.Generate(p.Snippets)
+	newContent, err := generator.GenerateBase(globalProfile.Snippets)
 	if err != nil {
 		return fmt.Errorf("generating Dockerfile: %w", err)
 	}
+
+	return buildImage(globalProfile, dockerfilePath, imageName, newContent, green, yellow)
+}
+
+func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
+	// When building (not just generating), ensure base image exists
+	if !buildGenerate && !imageExists("glovebox:base") {
+		fmt.Println("Base image not found. Building glovebox:base first...")
+		if err := buildBaseImage(green, yellow); err != nil {
+			return fmt.Errorf("building base image: %w", err)
+		}
+		fmt.Println()
+	}
+
+	// Check if base image has changed since last project build
+	var baseDigest string
+	if imageExists("glovebox:base") {
+		var err error
+		baseDigest, err = getImageDigest("glovebox:base")
+		if err != nil {
+			return fmt.Errorf("getting base image digest: %w", err)
+		}
+
+		if p.Build.BaseDigest != "" && p.Build.BaseDigest != baseDigest {
+			yellow.Println("⚠ Base image has changed since last build")
+			fmt.Println("Project image will be rebuilt with new base.")
+			fmt.Println()
+		}
+	} else if !buildGenerate {
+		return fmt.Errorf("base image glovebox:base not found. Run 'glovebox build --base' first")
+	}
+
+	dockerfilePath := p.DockerfilePath()
+	imageName := p.ImageName()
+
+	// Generate new Dockerfile content
+	newContent, err := generator.GenerateProject(p.Snippets)
+	if err != nil {
+		return fmt.Errorf("generating Dockerfile: %w", err)
+	}
+
+	// Store base digest for future comparison (if available)
+	if baseDigest != "" {
+		p.Build.BaseDigest = baseDigest
+	}
+
+	return buildImage(p, dockerfilePath, imageName, newContent, green, yellow)
+}
+
+func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string, green, yellow *color.Color) error {
 	newDigest := digest.Calculate(newContent)
 
 	// Check if Dockerfile exists and has been modified
@@ -70,9 +160,9 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 		// Case 1: Dockerfile matches what we'd generate - no changes needed
 		if existingDigest == newDigest {
-			green.Println("✓ Dockerfile is already up to date")
+			green.Printf("✓ Dockerfile is already up to date (%s)\n", dockerfilePath)
 			if !buildGenerate {
-				return runDockerBuild()
+				return runDockerBuild(dockerfilePath, imageName)
 			}
 			return nil
 		}
@@ -83,7 +173,8 @@ func runBuild(cmd *cobra.Command, args []string) error {
 			fmt.Println("Regenerating Dockerfile...")
 		} else if p.Build.DockerfileDigest != "" {
 			// Case 3: Dockerfile was modified externally
-			yellow.Println("⚠ Dockerfile has been modified since last generation\n")
+			yellow.Printf("⚠ Dockerfile has been modified since last generation\n")
+			yellow.Printf("  Path: %s\n\n", dockerfilePath)
 
 			// Show diff
 			if err := showDiff(string(existingContent), newContent); err != nil {
@@ -112,18 +203,28 @@ func runBuild(cmd *cobra.Command, args []string) error {
 			case "keep":
 				// Update digest to current file, don't regenerate
 				p.UpdateBuildInfo(existingDigest)
+				p.Build.ImageName = imageName
 				if err := p.Save(); err != nil {
 					return fmt.Errorf("saving profile: %w", err)
 				}
 				green.Println("✓ Keeping current Dockerfile and updating digest")
 				if !buildGenerate {
-					return runDockerBuild()
+					return runDockerBuild(dockerfilePath, imageName)
 				}
 				return nil
 			case "regenerate":
 				// Fall through to regenerate
 			}
 		}
+	}
+
+	// Ensure directory exists
+	dockerfileDir := dockerfilePath[:len(dockerfilePath)-len("/Dockerfile")]
+	if dockerfileDir == "" {
+		dockerfileDir = "."
+	}
+	if err := os.MkdirAll(dockerfileDir, 0755); err != nil {
+		return fmt.Errorf("creating directory: %w", err)
 	}
 
 	// Write new Dockerfile
@@ -133,17 +234,18 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 	// Update profile with new digest
 	p.UpdateBuildInfo(newDigest)
+	p.Build.ImageName = imageName
 	if err := p.Save(); err != nil {
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	green.Printf("✓ Generated Dockerfile (%s)\n", digest.Short(newDigest))
+	green.Printf("✓ Generated Dockerfile (%s)\n", dockerfilePath)
 
 	if buildGenerate {
 		return nil
 	}
 
-	return runDockerBuild()
+	return runDockerBuild(dockerfilePath, imageName)
 }
 
 func promptBuildAction() (string, error) {
@@ -205,10 +307,16 @@ func showDiff(existing, new string) error {
 	return nil
 }
 
-func runDockerBuild() error {
-	fmt.Println("\nBuilding Docker image...")
+func runDockerBuild(dockerfilePath, imageName string) error {
+	fmt.Printf("\nBuilding Docker image %s...\n", imageName)
 
-	cmd := exec.Command("docker", "build", "-t", "glovebox", ".")
+	// Get the directory containing the Dockerfile
+	dockerfileDir := dockerfilePath[:len(dockerfilePath)-len("Dockerfile")]
+	if dockerfileDir == "" {
+		dockerfileDir = "."
+	}
+
+	cmd := exec.Command("docker", "build", "-t", imageName, "-f", dockerfilePath, dockerfileDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -216,6 +324,20 @@ func runDockerBuild() error {
 		return fmt.Errorf("docker build failed: %w", err)
 	}
 
-	color.New(color.FgGreen).Println("\n✓ Docker image built successfully")
+	color.New(color.FgGreen).Printf("\n✓ Docker image %s built successfully\n", imageName)
 	return nil
+}
+
+func imageExists(name string) bool {
+	cmd := exec.Command("docker", "image", "inspect", name)
+	return cmd.Run() == nil
+}
+
+func getImageDigest(name string) (string, error) {
+	cmd := exec.Command("docker", "image", "inspect", "--format", "{{.Id}}", name)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }

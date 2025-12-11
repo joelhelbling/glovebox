@@ -23,8 +23,12 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new glovebox profile",
 	Long: `Initialize a new glovebox profile interactively.
 
-By default, creates a project-local profile in .glovebox/profile.yaml.
-Use --global to create a global profile in ~/.glovebox/profile.yaml.`,
+Use --global to create the base image profile (~/.glovebox/profile.yaml).
+This defines your standard development environment with your preferred
+shell, editor, and tools. Build it once with 'glovebox build --base'.
+
+Without --global, creates a project-specific profile (.glovebox/profile.yaml)
+that extends the base image with additional tools for that project.`,
 	RunE: runInit,
 }
 
@@ -85,8 +89,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	green := color.New(color.FgGreen)
 	green.Printf("✓ Profile created at %s\n", profilePath)
 	fmt.Println("\nNext steps:")
-	fmt.Println("  glovebox build    # Generate Dockerfile and build image")
-	fmt.Println("  glovebox status   # Check profile status")
+	if initGlobal {
+		fmt.Println("  glovebox build --base   # Build the base image (glovebox:base)")
+		fmt.Println("  glovebox run            # Run glovebox in any directory")
+	} else {
+		fmt.Println("  glovebox build          # Build the project image")
+		fmt.Println("  glovebox run            # Run glovebox in this directory")
+	}
 
 	return nil
 }
