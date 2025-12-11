@@ -42,6 +42,10 @@ func GenerateBase(snippetIDs []string) (string, error) {
 	// Collect and dedupe apt repos
 	aptRepos := collectAptRepos(snippets)
 	if len(aptRepos) > 0 {
+		// Need software-properties-common for apt-add-repository
+		b.WriteString("# Install software-properties-common for apt-add-repository\n")
+		b.WriteString("RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*\n\n")
+
 		b.WriteString("# Add APT repositories\n")
 		b.WriteString("RUN ")
 		for i, repo := range aptRepos {
@@ -166,6 +170,10 @@ func GenerateProject(snippetIDs []string) (string, error) {
 	// Collect and dedupe apt repos
 	aptRepos := collectAptRepos(snippets)
 	if len(aptRepos) > 0 {
+		// Need software-properties-common for apt-add-repository (may already be in base)
+		b.WriteString("# Ensure software-properties-common is available for apt-add-repository\n")
+		b.WriteString("RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*\n\n")
+
 		b.WriteString("# Add APT repositories\n")
 		b.WriteString("RUN ")
 		for i, repo := range aptRepos {
