@@ -209,9 +209,14 @@ func handlePostExit(containerName, imageName string, green, yellow, dim *color.C
 	}
 
 	fmt.Println()
-	fmt.Print("Persist these changes to the image? [y/N] ")
+	fmt.Println("What would you like to do?")
+	fmt.Println("  [y]es   - commit changes to image (fresh container next run)")
+	fmt.Println("  [n]o    - keep uncommitted changes (resume this container next run)")
+	fmt.Println("  [e]rase - discard changes (fresh container next run)")
+	fmt.Print("Choice: ")
 
-	if confirmCommitPrompt() {
+	switch getPostExitChoice() {
+	case "yes":
 		if err := commitContainer(containerName, imageName); err != nil {
 			yellow.Printf("Warning: could not commit changes: %v\n", err)
 			return nil
@@ -219,10 +224,18 @@ func handlePostExit(containerName, imageName string, green, yellow, dim *color.C
 		green.Printf("Changes committed to %s\n", imageName)
 
 		// Remove the container so next run starts fresh from the committed image
-		// This resets the diff baseline
-		if err := removeContainerAfterCommit(containerName); err != nil {
+		if err := deleteContainer(containerName); err != nil {
 			yellow.Printf("Warning: could not remove container: %v\n", err)
 		}
+	case "erase":
+		if err := deleteContainer(containerName); err != nil {
+			yellow.Printf("Warning: could not remove container: %v\n", err)
+			return nil
+		}
+		dim.Println("Container removed. Next run will start fresh.")
+	default:
+		// "no" - leave container as-is
+		dim.Println("Changes kept in container.")
 	}
 
 	return nil
@@ -317,15 +330,23 @@ func summarizeChanges(changes []string) []string {
 	return result
 }
 
-// confirmCommitPrompt asks for user confirmation
-func confirmCommitPrompt() bool {
+// getPostExitChoice prompts user for what to do with container changes
+// Returns "yes", "no", or "erase"
+func getPostExitChoice() string {
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
-		return false
+		return "no"
 	}
 	response = strings.TrimSpace(strings.ToLower(response))
-	return response == "y" || response == "yes"
+	switch response {
+	case "y", "yes":
+		return "yes"
+	case "e", "erase":
+		return "erase"
+	default:
+		return "no"
+	}
 }
 
 // commitContainer commits container changes to its image
@@ -334,12 +355,12 @@ func commitContainer(containerName, imageName string) error {
 	return cmd.Run()
 }
 
-// removeContainerAfterCommit removes the container after a successful commit
-// so the next run starts fresh from the committed image
-func removeContainerAfterCommit(containerName string) error {
+// deleteContainer removes a container without printing
+func deleteContainer(containerName string) error {
 	cmd := exec.Command("docker", "container", "rm", containerName)
 	return cmd.Run()
 }
+
 
 // determineImage figures out which Docker image to use for the given directory
 func determineImage(dir string) (string, error) {
