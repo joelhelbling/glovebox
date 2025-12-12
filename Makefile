@@ -1,4 +1,4 @@
-.PHONY: build install clean test fmt vet lint run help release version
+.PHONY: build install clean test fmt vet lint run help release version snapshot
 
 BINARY_NAME := glovebox
 BINARY_PATH := bin/$(BINARY_NAME)
@@ -59,6 +59,9 @@ endif
 		exit 1; \
 	fi
 	git tag -a $(V) -m "Release $(V)"
-	$(MAKE) build
-	@echo "Built $(BINARY_PATH) with version $(V)"
-	@echo "To push: git push origin main && git push origin $(V)"
+	@echo "Created tag $(V)"
+	@echo "To release: git push origin main && git push origin $(V)"
+	@echo "GitHub Actions will run GoReleaser automatically"
+
+snapshot: ## Build snapshot release locally (no publish)
+	goreleaser release --snapshot --clean
