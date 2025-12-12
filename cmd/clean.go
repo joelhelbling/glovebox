@@ -14,6 +14,7 @@ import (
 )
 
 var (
+	cleanImage bool
 	cleanBase  bool
 	cleanAll   bool
 	cleanForce bool
@@ -21,15 +22,18 @@ var (
 
 var cleanCmd = &cobra.Command{
 	Use:   "clean [directory]",
-	Short: "Remove glovebox Docker images and containers",
-	Long: `Remove glovebox Docker images and containers.
+	Short: "Remove glovebox Docker container (and optionally image)",
+	Long: `Remove glovebox Docker container for the current project.
 
-By default, cleans only the current project (or specified directory):
-  - Removes the project's Docker container
-  - Removes the project's Docker image
+By default, removes only the container (preserving the image):
+  - Discards any uncommitted changes in the container
+  - Next run creates a fresh container from the existing image
+  - Safe: committed changes in the image are preserved
 
-With --base, also removes the base image (requires confirmation):
-  - Everything above, plus glovebox:base
+With --image, also removes the project image:
+  - Removes both container and image
+  - Next run triggers a full image rebuild
+  - Warning: any user-committed changes will be lost
 
 With --all, removes everything glovebox-related (requires confirmation):
   - All glovebox:* images
@@ -41,6 +45,7 @@ Use --force to skip confirmation prompts.`,
 }
 
 func init() {
+	cleanCmd.Flags().BoolVar(&cleanImage, "image", false, "Also remove the project image (loses committed changes)")
 	cleanCmd.Flags().BoolVar(&cleanBase, "base", false, "Also remove the base image (requires confirmation)")
 	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "Remove all glovebox images and containers (requires confirmation)")
 	cleanCmd.Flags().BoolVarP(&cleanForce, "force", "f", false, "Skip confirmation prompts")
@@ -92,8 +97,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 	imageFound := imageExists(imageName)
 	containerFound := containerExistsForClean(containerName)
 
-	if !imageFound && !containerFound {
-		yellow.Printf("No glovebox resources found for %s\n", collapsePath(absPath))
+	if !containerFound && (!cleanImage || !imageFound) {
+		yellow.Printf("No glovebox container found for %s\n", collapsePath(absPath))
 		if cleanBase {
 			// Still try to clean base if requested
 			return cleanBaseImage(yellow, green, red)
@@ -111,7 +116,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if imageFound {
+	// Only remove image if --image flag is set
+	if cleanImage && imageFound {
 		if err := removeImage(imageName, green); err != nil {
 			yellow.Printf("Warning: could not remove image %s: %v\n", imageName, err)
 		}
