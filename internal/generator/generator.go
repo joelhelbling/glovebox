@@ -97,6 +97,34 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("USER ubuntu\n")
 	b.WriteString("WORKDIR /home/ubuntu\n\n")
 
+	// Environment variables - set before run_as_user so mods can use each other's env vars
+	// (e.g., neovim needs homebrew's PATH to run `brew install`)
+	envVars := collectEnvVars(mods)
+
+	// Always include local bin paths
+	b.WriteString("# Ensure local binaries are in PATH\n")
+	if pathVal, hasPath := envVars["PATH"]; hasPath {
+		// Prepend our paths to the mod-specified PATH
+		b.WriteString(fmt.Sprintf("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:%s\"\n", pathVal))
+		delete(envVars, "PATH") // Don't emit again below
+	} else {
+		b.WriteString("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:$PATH\"\n")
+	}
+
+	if len(envVars) > 0 {
+		b.WriteString("# Environment variables from mods\n")
+		// Sort keys for deterministic output
+		envKeys := make([]string, 0, len(envVars))
+		for key := range envVars {
+			envKeys = append(envKeys, key)
+		}
+		sortStrings(envKeys)
+		for _, key := range envKeys {
+			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
+		}
+	}
+	b.WriteString("\n")
+
 	// Run as user commands
 	for _, m := range mods {
 		if m.RunAsUser != "" {
@@ -107,26 +135,6 @@ func GenerateBase(modIDs []string) (string, error) {
 			b.WriteString("\nEOF\n\n")
 		}
 	}
-
-	// Environment variables
-	envVars := collectEnvVars(mods)
-	if len(envVars) > 0 {
-		b.WriteString("# Environment variables\n")
-		// Sort keys for deterministic output
-		envKeys := make([]string, 0, len(envVars))
-		for key := range envVars {
-			envKeys = append(envKeys, key)
-		}
-		sortStrings(envKeys)
-		for _, key := range envKeys {
-			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
-		}
-		b.WriteString("\n")
-	}
-
-	// PATH
-	b.WriteString("# Ensure local binaries are in PATH\n")
-	b.WriteString("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:$PATH\"\n\n")
 
 	// Working directory
 	b.WriteString("# Set working directory for mounted projects\n")
@@ -230,21 +238,10 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	b.WriteString("USER ubuntu\n")
 	b.WriteString("WORKDIR /home/ubuntu\n\n")
 
-	// Run as user commands
-	for _, m := range mods {
-		if m.RunAsUser != "" {
-			b.WriteString(fmt.Sprintf("# %s setup (user)\n", m.Name))
-			b.WriteString("RUN <<'EOF'\n")
-			b.WriteString("set -e\n")
-			b.WriteString(strings.TrimSpace(m.RunAsUser))
-			b.WriteString("\nEOF\n\n")
-		}
-	}
-
-	// Environment variables
+	// Environment variables - set before run_as_user so mods can use each other's env vars
 	envVars := collectEnvVars(mods)
 	if len(envVars) > 0 {
-		b.WriteString("# Environment variables\n")
+		b.WriteString("# Environment variables from mods\n")
 		// Sort keys for deterministic output
 		envKeys := make([]string, 0, len(envVars))
 		for key := range envVars {
@@ -255,6 +252,17 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
 		}
 		b.WriteString("\n")
+	}
+
+	// Run as user commands
+	for _, m := range mods {
+		if m.RunAsUser != "" {
+			b.WriteString(fmt.Sprintf("# %s setup (user)\n", m.Name))
+			b.WriteString("RUN <<'EOF'\n")
+			b.WriteString("set -e\n")
+			b.WriteString(strings.TrimSpace(m.RunAsUser))
+			b.WriteString("\nEOF\n\n")
+		}
 	}
 
 	// Set working directory
