@@ -25,9 +25,8 @@ builds:
 
 archives:
   - id: glovebox
-    builds:
-      - glovebox
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -53,8 +52,10 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
+homebrew_casks:
   - name: glovebox
+    ids:
+      - glovebox
     repository:
       owner: joelhelbling
       name: homebrew-glovebox
@@ -70,6 +71,7 @@ brews:
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     install: |
       bin.install "glovebox"
+      bin.install_symlink "glovebox" => "gb"
     test: |
       system "#{bin}/glovebox", "-v"
 
