@@ -24,18 +24,27 @@ Glovebox gives you a sandboxed Docker environment that actually feels like home.
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap joelhelbling/glovebox
+brew install glovebox
+```
+
+This installs the `glovebox` command and a `gb` shorthand alias.
+
 ### From Source
 
 ```bash
 git clone https://github.com/joelhelbling/glovebox.git
 cd glovebox
-go build -o bin/glovebox .
+make build
 ```
 
-Then add the `bin` directory to your PATH, or symlink the binary:
+Then add the `bin` directory to your PATH, or install system-wide:
 
 ```bash
-ln -s /path/to/glovebox/bin/glovebox ~/.local/bin/glovebox
+make install  # installs to /usr/local/bin with gb symlink
 ```
 
 ## Quick Start
