@@ -68,11 +68,6 @@ func runRun(cmd *cobra.Command, args []string) error {
 	dirName := filepath.Base(absPath)
 	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
 
-	// Ensure volume exists
-	if err := ensureVolume(volumeName); err != nil {
-		return err
-	}
-
 	fmt.Printf("Starting glovebox with workspace: %s\n", collapsePath(absPath))
 	fmt.Printf("Using image: %s\n", imageName)
 	fmt.Printf("Using home volume: %s\n", volumeName)
@@ -164,17 +159,3 @@ func determineImage(dir string) (string, error) {
 	return "glovebox:base", nil
 }
 
-func ensureVolume(name string) error {
-	// Check if volume exists
-	check := exec.Command("docker", "volume", "inspect", name)
-	if err := check.Run(); err == nil {
-		return nil // Volume exists
-	}
-
-	// Create volume
-	fmt.Printf("Creating home volume: %s\n", name)
-	create := exec.Command("docker", "volume", "create", name)
-	create.Stdout = os.Stdout
-	create.Stderr = os.Stderr
-	return create.Run()
-}

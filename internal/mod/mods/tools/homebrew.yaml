@@ -1,33 +1,38 @@
 name: homebrew
 description: The Missing Package Manager for macOS (or Linux)
 category: tool
+install_phase: post_install
 requires:
   - base
 
 run_as_user: |
-  # Install Homebrew using the official installer
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # Install Homebrew to ~/.homebrew (inside home volume for persistence)
+  if [ ! -d ~/.homebrew ]; then
+    git clone https://github.com/Homebrew/brew ~/.homebrew
+    # Install Homebrew's portable-ruby
+    ~/.homebrew/bin/brew update --force
+  fi
 
   # Configure Homebrew for bash
   touch ~/.bashrc
-  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+  echo 'eval "$(~/.homebrew/bin/brew shellenv)"' >> ~/.bashrc
 
   # Configure Homebrew for zsh (if zsh config dir exists)
   if [ -d ~/.config/zsh ] || [ -f ~/.zshrc ]; then
     touch ~/.zshrc
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.zshrc
+    echo 'eval "$(~/.homebrew/bin/brew shellenv)"' >> ~/.zshrc
   fi
 
   # Configure Homebrew for fish (if fish config dir exists)
   if [ -d ~/.config/fish ]; then
     mkdir -p ~/.config/fish/conf.d
-    echo 'eval (/home/linuxbrew/.linuxbrew/bin/brew shellenv)' > ~/.config/fish/conf.d/homebrew.fish
+    echo 'eval (~/.homebrew/bin/brew shellenv)' > ~/.config/fish/conf.d/homebrew.fish
   fi
 
 env:
-  HOMEBREW_PREFIX: /home/linuxbrew/.linuxbrew
-  HOMEBREW_CELLAR: /home/linuxbrew/.linuxbrew/Cellar
-  HOMEBREW_REPOSITORY: /home/linuxbrew/.linuxbrew/Homebrew
-  PATH: /home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH
-  MANPATH: /home/linuxbrew/.linuxbrew/share/man
-  INFOPATH: /home/linuxbrew/.linuxbrew/share/info
+  HOMEBREW_PREFIX: /home/ubuntu/.homebrew
+  HOMEBREW_CELLAR: /home/ubuntu/.homebrew/Cellar
+  HOMEBREW_REPOSITORY: /home/ubuntu/.homebrew
+  PATH: /home/ubuntu/.homebrew/bin:/home/ubuntu/.homebrew/sbin:$PATH
+  MANPATH: /home/ubuntu/.homebrew/share/man
+  INFOPATH: /home/ubuntu/.homebrew/share/info
