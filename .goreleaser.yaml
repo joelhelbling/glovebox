@@ -52,7 +52,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-homebrew_casks:
+brews:
   - name: glovebox
     ids:
       - glovebox
