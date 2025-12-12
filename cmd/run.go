@@ -154,7 +154,7 @@ func determineImage(dir string) (string, error) {
 			return "", fmt.Errorf("no glovebox profile found.\nRun 'glovebox init --global' to create a global profile first")
 		}
 
-		yellow.Println("Base image glovebox:base not found. Building...\n")
+		yellow.Println("Base image glovebox:base not found. Building...")
 		if err := buildBaseImage(green, yellow); err != nil {
 			return "", fmt.Errorf("building base image: %w", err)
 		}

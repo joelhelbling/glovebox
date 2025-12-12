@@ -124,7 +124,7 @@ func interactiveModSelection() ([]string, error) {
 	sort.Strings(categories)
 
 	fmt.Println("\nSelect mods for your glovebox environment.")
-	fmt.Println("Base dependencies are automatically included.\n")
+	fmt.Println("Base dependencies are automatically included.")
 
 	for _, category := range categories {
 		mods := modsByCategory[category]

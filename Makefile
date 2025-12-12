@@ -2,7 +2,9 @@
 
 BINARY_NAME := glovebox
 BINARY_PATH := bin/$(BINARY_NAME)
-INSTALL_PATH := /usr/local/bin/$(BINARY_NAME)
+INSTALL_DIR := /usr/local/bin
+INSTALL_PATH := $(INSTALL_DIR)/$(BINARY_NAME)
+SYMLINK_PATH := $(INSTALL_DIR)/gb
 
 # Use mise if available, otherwise assume go is in PATH
 GO := $(shell command -v mise >/dev/null 2>&1 && echo "mise exec -- go" || echo "go")
@@ -22,9 +24,10 @@ version: ## Show current version
 
 install: build ## Install to /usr/local/bin
 	cp $(BINARY_PATH) $(INSTALL_PATH)
+	ln -sf $(BINARY_NAME) $(SYMLINK_PATH)
 
 uninstall: ## Remove from /usr/local/bin
-	rm -f $(INSTALL_PATH)
+	rm -f $(INSTALL_PATH) $(SYMLINK_PATH)
 
 clean: ## Remove build artifacts
 	rm -f $(BINARY_PATH)
