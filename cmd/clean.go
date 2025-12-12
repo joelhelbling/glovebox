@@ -15,7 +15,6 @@ import (
 
 var (
 	cleanImage bool
-	cleanBase  bool
 	cleanAll   bool
 	cleanForce bool
 )
@@ -46,7 +45,6 @@ Use --force to skip confirmation prompts.`,
 
 func init() {
 	cleanCmd.Flags().BoolVar(&cleanImage, "image", false, "Also remove the project image (loses committed changes)")
-	cleanCmd.Flags().BoolVar(&cleanBase, "base", false, "Also remove the base image (requires confirmation)")
 	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "Remove all glovebox images and containers (requires confirmation)")
 	cleanCmd.Flags().BoolVarP(&cleanForce, "force", "f", false, "Skip confirmation prompts")
 	rootCmd.AddCommand(cleanCmd)
@@ -99,10 +97,6 @@ func runClean(cmd *cobra.Command, args []string) error {
 
 	if !containerFound && (!cleanImage || !imageFound) {
 		yellow.Printf("No glovebox container found for %s\n", collapsePath(absPath))
-		if cleanBase {
-			// Still try to clean base if requested
-			return cleanBaseImage(yellow, green, red)
-		}
 		return nil
 	}
 
@@ -121,11 +115,6 @@ func runClean(cmd *cobra.Command, args []string) error {
 		if err := removeImage(imageName, green); err != nil {
 			yellow.Printf("Warning: could not remove image %s: %v\n", imageName, err)
 		}
-	}
-
-	if cleanBase {
-		fmt.Println()
-		return cleanBaseImage(yellow, green, red)
 	}
 
 	return nil
@@ -169,26 +158,6 @@ func findRunningGloveboxContainers() ([]containerInfo, error) {
 	}
 
 	return containers, nil
-}
-
-func cleanBaseImage(yellow, green, red *color.Color) error {
-	if !imageExists("glovebox:base") {
-		yellow.Println("Base image glovebox:base not found, nothing to clean.")
-		return nil
-	}
-
-	if !cleanForce {
-		red.Println("Warning: This will remove the base image glovebox:base.")
-		fmt.Println("All project images depend on this and will need to be rebuilt.")
-		fmt.Print("Continue? [y/N] ")
-
-		if !confirmPrompt() {
-			fmt.Println("Aborted.")
-			return nil
-		}
-	}
-
-	return removeImage("glovebox:base", green)
 }
 
 func cleanAllGlovebox(yellow, green, red *color.Color) error {
