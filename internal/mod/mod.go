@@ -14,43 +14,18 @@ import (
 //go:embed all:mods
 var modFS embed.FS
 
-// InstallPhase constants
-const (
-	InstallPhaseBuild       = "build"        // Default: install during docker build
-	InstallPhasePostInstall = "post_install" // Install on first container run
-)
-
 // Mod represents a composable piece of Dockerfile configuration
 type Mod struct {
-	Name         string            `yaml:"name"`
-	Description  string            `yaml:"description"`
-	Category     string            `yaml:"category"`
-	InstallPhase string            `yaml:"install_phase,omitempty"` // "build" (default) or "post_install"
-	Requires     []string          `yaml:"requires,omitempty"`
-	AptRepos     []string          `yaml:"apt_repos,omitempty"`
-	AptPackages  []string          `yaml:"apt_packages,omitempty"`
-	RunAsRoot    string            `yaml:"run_as_root,omitempty"`
-	RunAsUser    string            `yaml:"run_as_user,omitempty"`
-	Env          map[string]string `yaml:"env,omitempty"`
-	UserShell    string            `yaml:"user_shell,omitempty"`
-}
-
-// GetInstallPhase returns the install phase, defaulting to "build" if not specified
-func (m *Mod) GetInstallPhase() string {
-	if m.InstallPhase == "" {
-		return InstallPhaseBuild
-	}
-	return m.InstallPhase
-}
-
-// IsBuildTime returns true if this mod should be installed during docker build
-func (m *Mod) IsBuildTime() bool {
-	return m.GetInstallPhase() == InstallPhaseBuild
-}
-
-// IsPostInstall returns true if this mod should be installed on first container run
-func (m *Mod) IsPostInstall() bool {
-	return m.GetInstallPhase() == InstallPhasePostInstall
+	Name        string            `yaml:"name"`
+	Description string            `yaml:"description"`
+	Category    string            `yaml:"category"`
+	Requires    []string          `yaml:"requires,omitempty"`
+	AptRepos    []string          `yaml:"apt_repos,omitempty"`
+	AptPackages []string          `yaml:"apt_packages,omitempty"`
+	RunAsRoot   string            `yaml:"run_as_root,omitempty"`
+	RunAsUser   string            `yaml:"run_as_user,omitempty"`
+	Env         map[string]string `yaml:"env,omitempty"`
+	UserShell   string            `yaml:"user_shell,omitempty"`
 }
 
 // modSearchPaths returns the directories to search for mods, in priority order:

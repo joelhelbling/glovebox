@@ -1,7 +1,6 @@
 name: emacs
 description: Emacs - the extensible, customizable, self-documenting real-time display editor
 category: editor
-install_phase: post_install
 requires:
   - tools/homebrew
 

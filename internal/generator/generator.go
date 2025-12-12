@@ -12,14 +12,10 @@ import (
 // GenerateBase creates a base Dockerfile from a list of mod IDs.
 // This is used for the global profile and produces a standalone image.
 func GenerateBase(modIDs []string) (string, error) {
-	allMods, err := mod.LoadMultiple(modIDs)
+	mods, err := mod.LoadMultiple(modIDs)
 	if err != nil {
 		return "", fmt.Errorf("loading mods: %w", err)
 	}
-
-	// Separate build-time and post-install mods
-	mods := filterBuildTimeMods(allMods)
-	postInstallMods := filterPostInstallMods(allMods)
 
 	var b strings.Builder
 
@@ -31,16 +27,9 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("#   glovebox remove <mod>   Remove a mod\n")
 	b.WriteString("#   glovebox build          Regenerate this file\n")
 	b.WriteString("#\n")
-	b.WriteString("# Build-time mods:\n")
+	b.WriteString("# Mods:\n")
 	for _, m := range mods {
 		b.WriteString(fmt.Sprintf("#   - %s\n", m.Name))
-	}
-	if len(postInstallMods) > 0 {
-		b.WriteString("#\n")
-		b.WriteString("# Post-install mods (installed on first run):\n")
-		for _, m := range postInstallMods {
-			b.WriteString(fmt.Sprintf("#   - %s\n", m.Name))
-		}
 	}
 	b.WriteString("\n")
 
@@ -103,15 +92,6 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("\nEOF\n")
 	b.WriteString("RUN chmod 755 /usr/local/bin/entrypoint.sh\n\n")
 
-	// Create post-install script directory and script
-	b.WriteString("# Create post-install script for first-run provisioning\n")
-	b.WriteString("RUN mkdir -p /usr/local/lib/glovebox\n")
-	postInstallScript := GeneratePostInstallScript(allMods)
-	b.WriteString("RUN cat > /usr/local/lib/glovebox/post-install.sh <<'EOF'\n")
-	b.WriteString(postInstallScript)
-	b.WriteString("EOF\n")
-	b.WriteString("RUN chmod 755 /usr/local/lib/glovebox/post-install.sh\n\n")
-
 	// Switch to non-root user
 	b.WriteString("# Switch to non-root user\n")
 	b.WriteString("USER ubuntu\n")
@@ -153,7 +133,7 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("WORKDIR /workspace\n\n")
 
 	// Entrypoint and default command
-	b.WriteString("# Use entrypoint to fix permissions on mounted volumes\n")
+	b.WriteString("# Use entrypoint for container initialization\n")
 	b.WriteString("ENTRYPOINT [\"/usr/local/bin/entrypoint.sh\"]\n")
 
 	// Determine default shell
@@ -168,14 +148,10 @@ func GenerateBase(modIDs []string) (string, error) {
 // baseModIDs should contain the mods already installed in the base image,
 // so their dependencies won't be redundantly included.
 func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
-	allMods, err := mod.LoadMultipleExcluding(modIDs, baseModIDs)
+	mods, err := mod.LoadMultipleExcluding(modIDs, baseModIDs)
 	if err != nil {
 		return "", fmt.Errorf("loading mods: %w", err)
 	}
-
-	// Separate build-time and post-install mods
-	mods := filterBuildTimeMods(allMods)
-	postInstallMods := filterPostInstallMods(allMods)
 
 	var b strings.Builder
 
@@ -189,21 +165,11 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	b.WriteString("#   glovebox build          Regenerate this file\n")
 	b.WriteString("#\n")
 	if len(mods) > 0 {
-		b.WriteString("# Build-time mods:\n")
+		b.WriteString("# Mods:\n")
 		for _, m := range mods {
 			b.WriteString(fmt.Sprintf("#   - %s\n", m.Name))
 		}
-	}
-	if len(postInstallMods) > 0 {
-		if len(mods) > 0 {
-			b.WriteString("#\n")
-		}
-		b.WriteString("# Post-install mods (installed on first run):\n")
-		for _, m := range postInstallMods {
-			b.WriteString(fmt.Sprintf("#   - %s\n", m.Name))
-		}
-	}
-	if len(mods) == 0 && len(postInstallMods) == 0 {
+	} else {
 		b.WriteString("# (no project-specific mods)\n")
 	}
 	b.WriteString("\n")
@@ -291,18 +257,6 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 		b.WriteString("\n")
 	}
 
-	// Update post-install script if there are project-specific post-install mods
-	if len(postInstallMods) > 0 {
-		b.WriteString("# Update post-install script with project-specific mods\n")
-		b.WriteString("USER root\n")
-		postInstallScript := GeneratePostInstallScript(allMods)
-		b.WriteString("RUN cat > /usr/local/lib/glovebox/post-install.sh <<'EOF'\n")
-		b.WriteString(postInstallScript)
-		b.WriteString("EOF\n")
-		b.WriteString("RUN chmod 755 /usr/local/lib/glovebox/post-install.sh\n")
-		b.WriteString("USER ubuntu\n\n")
-	}
-
 	// Set working directory
 	b.WriteString("# Set working directory for mounted projects\n")
 	b.WriteString("WORKDIR /workspace\n")
@@ -371,78 +325,4 @@ func determineDefaultShell(mods []*mod.Mod) string {
 		}
 	}
 	return shell
-}
-
-// filterBuildTimeMods returns only mods that should be installed during docker build
-func filterBuildTimeMods(mods []*mod.Mod) []*mod.Mod {
-	var result []*mod.Mod
-	for _, m := range mods {
-		if m.IsBuildTime() {
-			result = append(result, m)
-		}
-	}
-	return result
-}
-
-// filterPostInstallMods returns only mods that should be installed on first run
-func filterPostInstallMods(mods []*mod.Mod) []*mod.Mod {
-	var result []*mod.Mod
-	for _, m := range mods {
-		if m.IsPostInstall() {
-			result = append(result, m)
-		}
-	}
-	return result
-}
-
-// GeneratePostInstallScript creates a shell script for first-run installation
-func GeneratePostInstallScript(mods []*mod.Mod) string {
-	postInstallMods := filterPostInstallMods(mods)
-
-	var b strings.Builder
-
-	b.WriteString("#!/bin/bash\n")
-	b.WriteString("set -e\n\n")
-
-	if len(postInstallMods) == 0 {
-		b.WriteString("# No post-install mods configured\n")
-		b.WriteString("exit 0\n")
-		return b.String()
-	}
-
-	b.WriteString("echo \"\"\n")
-	b.WriteString("echo \"===========================================\"\n")
-	b.WriteString("echo \"Glovebox: First-run provisioning\"\n")
-	b.WriteString("echo \"===========================================\"\n")
-	b.WriteString("echo \"\"\n")
-	b.WriteString("echo \"Installing tools you selected. This only\"\n")
-	b.WriteString("echo \"happens on first run - subsequent starts\"\n")
-	b.WriteString("echo \"will be instant.\"\n")
-	b.WriteString("echo \"\"\n\n")
-
-	total := len(postInstallMods)
-	for i, m := range postInstallMods {
-		b.WriteString(fmt.Sprintf("# %s\n", m.Name))
-		b.WriteString(fmt.Sprintf("echo \"[%d/%d] Installing %s...\"\n", i+1, total, m.Name))
-
-		if m.RunAsRoot != "" {
-			b.WriteString("sudo bash <<'ROOTEOF'\n")
-			b.WriteString("set -e\n")
-			b.WriteString(strings.TrimSpace(m.RunAsRoot))
-			b.WriteString("\nROOTEOF\n\n")
-		}
-
-		if m.RunAsUser != "" {
-			b.WriteString(strings.TrimSpace(m.RunAsUser))
-			b.WriteString("\n\n")
-		}
-	}
-
-	b.WriteString("echo \"\"\n")
-	b.WriteString("echo \"===========================================\"\n")
-	b.WriteString("echo \"Provisioning complete!\"\n")
-	b.WriteString("echo \"===========================================\"\n")
-	b.WriteString("echo \"\"\n")
-
-	return b.String()
 }

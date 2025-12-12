@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/profile"
@@ -24,8 +26,10 @@ The command will:
 2. Fall back to glovebox:base if no project profile exists
 3. Build images automatically if they don't exist
 
-Each project gets its own home directory volume, so tool installations,
-shell history, and configurations persist between sessions.`,
+Each project gets its own persistent container. Any changes you make to the
+container (installing tools, configuring editors, etc.) are preserved in the
+container's writable layer. After exiting, you'll be prompted to commit
+changes to the image if any were detected.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runRun,
 }
@@ -35,6 +39,10 @@ func init() {
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
+	yellow := color.New(color.FgYellow)
+	green := color.New(color.FgGreen)
+	dim := color.New(color.Faint)
+
 	// Determine target directory
 	targetDir := "."
 	if len(args) > 0 {
@@ -62,24 +70,88 @@ func runRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Generate volume name for home directory
+	// Generate container name for this project
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := fmt.Sprintf("%x", hash)[:7]
 	dirName := filepath.Base(absPath)
-	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
+	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
+
+	// Check if container already exists
+	containerExists := checkContainerExists(containerName)
+	containerRunning := checkContainerRunning(containerName)
 
 	fmt.Printf("Starting glovebox with workspace: %s\n", collapsePath(absPath))
 	fmt.Printf("Using image: %s\n", imageName)
-	fmt.Printf("Using home volume: %s\n", volumeName)
 
-	// Build docker run command
 	// Mount workspace at /<dirName> so the prompt shows the project name
 	workspacePath := "/" + dirName
+
+	if containerRunning {
+		// Container is already running - attach to it
+		yellow.Printf("Container %s is already running. Attaching...\n", containerName)
+		return attachToContainer(containerName)
+	}
+
+	if containerExists {
+		// Container exists but stopped - start it
+		dim.Printf("Container: %s (existing)\n", containerName)
+		if err := startContainer(containerName, absPath, workspacePath); err != nil {
+			return err
+		}
+	} else {
+		// Create new container
+		dim.Printf("Container: %s (new)\n", containerName)
+		if err := createAndStartContainer(containerName, imageName, absPath, workspacePath); err != nil {
+			return err
+		}
+	}
+
+	// After container exits, check for changes and offer to commit
+	return handlePostExit(containerName, imageName, green, yellow, dim)
+}
+
+// checkContainerExists checks if a container with the given name exists (running or stopped)
+func checkContainerExists(name string) bool {
+	cmd := exec.Command("docker", "container", "inspect", name)
+	return cmd.Run() == nil
+}
+
+// checkContainerRunning checks if a container is currently running
+func checkContainerRunning(name string) bool {
+	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "true"
+}
+
+// attachToContainer attaches to a running container
+func attachToContainer(name string) error {
+	docker := exec.Command("docker", "attach", name)
+	docker.Stdin = os.Stdin
+	docker.Stdout = os.Stdout
+	docker.Stderr = os.Stderr
+	return docker.Run()
+}
+
+// startContainer starts an existing stopped container
+func startContainer(name, hostPath, workspacePath string) error {
+	// Start the container in attached mode
+	docker := exec.Command("docker", "start", "-ai", name)
+	docker.Stdin = os.Stdin
+	docker.Stdout = os.Stdout
+	docker.Stderr = os.Stderr
+	return docker.Run()
+}
+
+// createAndStartContainer creates a new container and starts it
+func createAndStartContainer(name, imageName, hostPath, workspacePath string) error {
 	dockerArgs := []string{
-		"run", "-it", "--rm",
-		"-v", fmt.Sprintf("%s:%s", absPath, workspacePath),
+		"run", "-it",
+		"--name", name,
+		"-v", fmt.Sprintf("%s:%s", hostPath, workspacePath),
 		"-w", workspacePath,
-		"-v", fmt.Sprintf("%s:/home/ubuntu", volumeName),
 		"--hostname", "glovebox",
 	}
 
@@ -109,6 +181,164 @@ func runRun(cmd *cobra.Command, args []string) error {
 	docker.Stderr = os.Stderr
 
 	return docker.Run()
+}
+
+// handlePostExit checks for container changes and offers to commit them
+func handlePostExit(containerName, imageName string, green, yellow, dim *color.Color) error {
+	// Get the diff
+	changes, err := getContainerDiff(containerName)
+	if err != nil {
+		// Don't fail on diff errors, just skip the commit prompt
+		return nil
+	}
+
+	if len(changes) == 0 {
+		return nil
+	}
+
+	// Filter and summarize changes
+	summary := summarizeChanges(changes)
+	if len(summary) == 0 {
+		return nil
+	}
+
+	fmt.Println()
+	yellow.Println("Changes detected in container:")
+	for _, s := range summary {
+		fmt.Printf("  %s\n", s)
+	}
+
+	fmt.Println()
+	fmt.Print("Persist these changes to the image? [y/N] ")
+
+	if confirmCommitPrompt() {
+		if err := commitContainer(containerName, imageName); err != nil {
+			yellow.Printf("Warning: could not commit changes: %v\n", err)
+			return nil
+		}
+		green.Printf("Changes committed to %s\n", imageName)
+
+		// Remove the container so next run starts fresh from the committed image
+		// This resets the diff baseline
+		if err := removeContainerAfterCommit(containerName); err != nil {
+			yellow.Printf("Warning: could not remove container: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// getContainerDiff returns the filesystem changes in a container
+func getContainerDiff(name string) ([]string, error) {
+	cmd := exec.Command("docker", "diff", name)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var changes []string
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line != "" {
+			changes = append(changes, line)
+		}
+	}
+	return changes, nil
+}
+
+// summarizeChanges filters and summarizes container changes for display
+func summarizeChanges(changes []string) []string {
+	// Group changes by top-level directory
+	dirCounts := make(map[string]int)
+	var importantChanges []string
+
+	for _, change := range changes {
+		// Parse change type and path (e.g., "A /home/ubuntu/.bashrc")
+		parts := strings.SplitN(change, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		changeType := parts[0]
+		path := parts[1]
+
+		// Skip workspace mount changes (those are on the host)
+		if strings.HasPrefix(path, "/workspace") {
+			continue
+		}
+
+		// Count by top-level meaningful directory
+		pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		if len(pathParts) >= 2 {
+			topDir := "/" + pathParts[0] + "/" + pathParts[1]
+			dirCounts[topDir]++
+		}
+
+		// Highlight specific important changes
+		if strings.Contains(path, "/.linuxbrew/Cellar/") {
+			// Extract package name from Cellar path
+			cellarParts := strings.Split(path, "/Cellar/")
+			if len(cellarParts) > 1 {
+				pkgParts := strings.Split(cellarParts[1], "/")
+				if len(pkgParts) > 0 {
+					importantChanges = append(importantChanges, fmt.Sprintf("%s brew package: %s", changeType, pkgParts[0]))
+				}
+			}
+		}
+	}
+
+	// Dedupe important changes
+	seen := make(map[string]bool)
+	var result []string
+	for _, c := range importantChanges {
+		if !seen[c] {
+			seen[c] = true
+			result = append(result, c)
+		}
+	}
+
+	// Add summary counts for directories with many changes
+	for dir, count := range dirCounts {
+		if count > 5 {
+			result = append(result, fmt.Sprintf("%d changes in %s", count, dir))
+		}
+	}
+
+	// If we have too many specific changes, just show counts
+	if len(result) > 10 {
+		result = result[:10]
+		result = append(result, fmt.Sprintf("... and %d more changes", len(changes)-10))
+	}
+
+	// If no meaningful summary, show total count
+	if len(result) == 0 && len(changes) > 0 {
+		result = append(result, fmt.Sprintf("%d filesystem changes", len(changes)))
+	}
+
+	return result
+}
+
+// confirmCommitPrompt asks for user confirmation
+func confirmCommitPrompt() bool {
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "y" || response == "yes"
+}
+
+// commitContainer commits container changes to its image
+func commitContainer(containerName, imageName string) error {
+	cmd := exec.Command("docker", "commit", containerName, imageName)
+	return cmd.Run()
+}
+
+// removeContainerAfterCommit removes the container after a successful commit
+// so the next run starts fresh from the committed image
+func removeContainerAfterCommit(containerName string) error {
+	cmd := exec.Command("docker", "container", "rm", containerName)
+	return cmd.Run()
 }
 
 // determineImage figures out which Docker image to use for the given directory
@@ -158,4 +388,3 @@ func determineImage(dir string) (string, error) {
 
 	return "glovebox:base", nil
 }
-

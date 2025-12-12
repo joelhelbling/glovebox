@@ -14,8 +14,8 @@ Glovebox gives you a sandboxed Docker environment that actually feels like home.
 
 - **Composable mods** - Mix and match shells, editors, languages, and AI tools
 - **Layered images** - Build once, extend per-project
-- **Persistent volumes** - Your shell history, tool configs, and installed runtimes survive rebuilds
-- **First-run provisioning** - Heavy tools install once, then persist
+- **Persistent containers** - Your changes survive between sessions
+- **Commit workflow** - Optionally save ad-hoc changes back to the image
 
 ## Prerequisites
 
@@ -70,62 +70,43 @@ Glovebox uses a **layered image approach**:
 └─────────────────────────────┘
 ```
 
-### Build-time vs Post-install Mods
+### Container Persistence
 
-Mods can be installed at two different phases:
+Each project gets its own persistent container. When you run glovebox:
 
-| Phase | When | Use Case |
-|-------|------|----------|
-| **build** (default) | During `docker build` | Core tools, shells, package managers |
-| **post_install** | First container run | Tools that benefit from volume persistence |
+1. **First run**: Creates a new container from your image
+2. **Subsequent runs**: Starts the existing container (preserving all changes)
+3. **On exit**: Detects filesystem changes and offers to commit them to the image
 
-Post-install mods (like AI coding assistants and editors) are installed on first container start:
+This means you can install tools, configure editors, and customize your environment during a session—then choose whether to persist those changes permanently.
 
 ```
-===========================================
-Glovebox: First-run provisioning
-===========================================
+$ exit
 
-Installing tools you selected. This only
-happens on first run - subsequent starts
-will be instant.
+Changes detected in container:
+  A brew package: ripgrep
+  A brew package: fd
+  47 changes in /home/ubuntu
 
-[1/1] Installing claude-code...
-🍺  claude-code was successfully installed!
-
-===========================================
-Provisioning complete!
-===========================================
+Persist these changes to the image? [y/N] y
+Changes committed to glovebox:myproject-abc123
 ```
-
-**Benefits of post-install:**
-- Smaller Docker images (tools not baked into layers)
-- Installations persist in home volume across image rebuilds
-- Faster iteration on base image without reinstalling tools
-
-**Implementation details:**
-
-- Post-install script location: `/usr/local/lib/glovebox/post-install.sh`
-- First-run marker file: `~/.glovebox-initialized`
 
 ## Design Philosophy
 
-Glovebox balances two competing concerns:
+Glovebox balances two concerns:
 
-1. **Don't nom my SSD** - Docker images and volumes can balloon quickly. We minimize image size by using layered builds and deferring tool installation to first-run when it makes sense.
+1. **Declarative base** - Mods in your profile define your standard environment, baked into images at build time
+2. **Flexible runtime** - Ad-hoc changes during sessions can be committed back to the image
 
-2. **Don't waste my time** - Nobody wants to wait for homebrew to install every time they start a container. Persistent volumes cache your installed tools, shell history, and configurations.
+| What | How | When |
+|------|-----|------|
+| Shells, editors, tools | Mods in profile | Build time |
+| Language runtimes | Mise (via mod) | Build time |
+| Ad-hoc installs | Commit workflow | Runtime |
+| Your code | Mounted from host | Always current |
 
-**The balance:**
-
-| What | Where | Why |
-|------|-------|-----|
-| Shells, package managers | Baked into image | Fast, rarely change |
-| Editors, AI tools | Post-install (volume) | Large, benefit from persistence |
-| Language runtimes | Mise on volume | Project-specific versions |
-| Your code | Mounted from host | Always current, never copied |
-
-**Source of truth:** Your profile and mods define what *should* be installed. The volume is a cache. If you delete the volume and rebuild, you should get a fully functional environment—it just might take a minute on first boot.
+**Source of truth:** Your profile defines what *should* be installed. The container's writable layer captures any runtime additions. If you clean everything and rebuild, you get exactly what your profile specifies.
 
 ## Commands
 
@@ -138,9 +119,11 @@ Glovebox balances two competing concerns:
 | `glovebox build --base` | Build the base image from base profile |
 | `glovebox build` | Build project image (or base if no project profile) |
 | `glovebox build --generate-only` | Only generate Dockerfile, don't build |
-| `glovebox status` | Show profile and image status |
+| `glovebox status` | Show profile, image, and container status |
 | `glovebox run [directory]` | Run glovebox container |
 | `glovebox clone <repo>` | Clone a repo and start glovebox in it |
+| `glovebox clean` | Remove project container and image |
+| `glovebox clean --all` | Remove all glovebox containers and images |
 | `glovebox mod list` | List all available mods (alias: `ls`) |
 | `glovebox mod cat <id>` | Output a mod's raw YAML to stdout |
 | `glovebox mod create <name>` | Create a new custom mod from template |
@@ -175,6 +158,7 @@ shells:
   shells/zsh           Z shell with sensible defaults
 
 tools:
+  tools/homebrew       The Missing Package Manager for macOS (or Linux)
   tools/mise           Polyglot runtime version manager
   tools/tmux           Terminal multiplexer with tmuxp session manager
 ```
@@ -217,40 +201,20 @@ glovebox build
 glovebox run
 ```
 
-## Persistence
+### Ad-hoc Tool Installation
 
-### Home Directory Volume
-
-Each project gets its own Docker volume for the container's home directory (`/home/ubuntu`). The volume is named `glovebox-<dirname>-<hash>-home`.
-
-**What lives in the volume:**
-
-| Path | Contents |
-|------|----------|
-| `~/.local/share/mise/` | Mise-installed language runtimes |
-| `/home/linuxbrew/.linuxbrew/` | Homebrew and installed packages |
-| `~/.config/` | Tool configurations |
-| `~/.bash_history`, etc. | Shell history |
-| `~/.glovebox-initialized` | First-run marker file |
-
-**What lives in the image:**
-
-| Path | Contents |
-|------|----------|
-| `/usr/bin/`, `/usr/local/bin/` | APT-installed tools, shells |
-| `/usr/local/lib/glovebox/` | Post-install script |
-
-### Working with Mise and Direnv
-
-The container has mise installed (via mod), but specific language versions are installed on-demand and cached in the volume:
+Need something not in your profile? Just install it:
 
 ```bash
-# In your project's .envrc
-mise install      # Installs versions from mise.toml
-mise activate     # Activates the environment
+# Inside the container
+brew install jq
+
+# On exit, glovebox detects the change
+exit
+# "Persist these changes to the image? [y/N]"
 ```
 
-This means your first `cd` into a project directory might trigger installs, but subsequent runs are instant.
+If you say yes, the change is committed to your image. If you say no, the change still persists in the container for next time—it just won't survive a `glovebox clean`.
 
 ## API Keys
 
@@ -260,11 +224,6 @@ The following environment variables are passed through to the container:
 - `OPENAI_API_KEY`
 - `GOOGLE_API_KEY`
 - `GEMINI_API_KEY`
-
-Additionally, these config directories are mounted read-only from your host:
-
-- `~/.anthropic` → `/home/ubuntu/.anthropic`
-- `~/.config/gemini` → `/home/ubuntu/.config/gemini`
 
 ## Creating Custom Mods
 
@@ -285,7 +244,6 @@ Create a YAML file with the following structure:
 name: my-tool
 description: My custom tool configuration
 category: custom
-install_phase: build  # "build" (default) or "post_install"
 requires:
   - base  # dependencies on other mods
 
@@ -308,8 +266,6 @@ env:
 
 user_shell: /usr/bin/bash  # Set as default shell (optional)
 ```
-
-Use `install_phase: post_install` for tools installed via homebrew or mise that you want to persist in volumes.
 
 ### Examples
 

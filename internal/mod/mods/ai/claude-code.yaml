@@ -1,7 +1,6 @@
 name: claude-code
 description: Anthropic's Claude Code CLI assistant
 category: ai
-install_phase: post_install
 requires:
   - tools/homebrew
 

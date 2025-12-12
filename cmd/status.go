@@ -107,16 +107,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseMods, green, yellow, dim)
 	}
 
-	// Show volumes section
+	// Show container section
 	fmt.Println()
-	bold.Println("Volumes:")
-	showVolumeStatus(cwd, green, yellow, dim)
+	bold.Println("Container:")
+	showContainerStatus(cwd, green, yellow, dim)
 
 	return nil
 }
 
-func showVolumeStatus(cwd string, green, yellow, dim *color.Color) {
-	// Calculate volume name (same logic as run.go)
+func showContainerStatus(cwd string, green, yellow, dim *color.Color) {
+	// Calculate container name (same logic as run.go)
 	absPath, err := filepath.Abs(cwd)
 	if err != nil {
 		yellow.Printf("  Error: %v\n", err)
@@ -126,18 +126,57 @@ func showVolumeStatus(cwd string, green, yellow, dim *color.Color) {
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := fmt.Sprintf("%x", hash)[:7]
 	dirName := filepath.Base(absPath)
-	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
+	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
 
 	// Workspace mount
 	fmt.Printf("  Workspace: %s → /%s\n", collapsePath(absPath), dirName)
 
-	// Home volume
-	fmt.Printf("  Home volume: %s → /home/ubuntu\n", volumeName)
-	if volumeExists(volumeName) {
-		green.Println("    Status: Exists ✓")
+	// Container status
+	fmt.Printf("  Container: %s\n", containerName)
+	if containerExists(containerName) {
+		if containerRunning(containerName) {
+			green.Println("    Status: Running ✓")
+		} else {
+			green.Println("    Status: Stopped (will resume on next run) ✓")
+			// Show if there are uncommitted changes
+			changes, err := getContainerChanges(containerName)
+			if err == nil && len(changes) > 0 {
+				yellow.Printf("    Uncommitted changes: %d\n", len(changes))
+			}
+		}
 	} else {
 		dim.Println("    Status: Will be created on first run")
 	}
+}
+
+func containerExists(name string) bool {
+	cmd := exec.Command("docker", "container", "inspect", name)
+	return cmd.Run() == nil
+}
+
+func containerRunning(name string) bool {
+	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(output)) == "true"
+}
+
+func getContainerChanges(name string) ([]string, error) {
+	cmd := exec.Command("docker", "diff", name)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var changes []string
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if line != "" {
+			changes = append(changes, line)
+		}
+	}
+	return changes, nil
 }
 
 func volumeExists(name string) bool {

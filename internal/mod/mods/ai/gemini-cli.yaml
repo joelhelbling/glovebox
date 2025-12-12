@@ -1,7 +1,6 @@
 name: gemini-cli
 description: Google's Gemini CLI assistant
 category: ai
-install_phase: post_install
 requires:
   - tools/homebrew
 

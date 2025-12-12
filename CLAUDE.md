@@ -24,6 +24,8 @@ make all        # Run lint, test, and build
 ```bash
 ./bin/glovebox build --base    # Build base image from ~/.glovebox/profile.yaml
 ./bin/glovebox build           # Build project image from .glovebox/profile.yaml
+./bin/glovebox clean           # Remove project container and image
+./bin/glovebox clean --all     # Remove all glovebox containers and images
 ```
 
 ## Versioning and Releases
@@ -65,7 +67,7 @@ Glovebox is a Go CLI that generates and runs Docker containers for sandboxed dev
 
 ### Key Packages
 
-- `cmd/` - Cobra CLI commands (init, build, run, add, remove, status, clone, mod)
+- `cmd/` - Cobra CLI commands (init, build, run, add, remove, status, clean, clone, mod)
 - `internal/mod/` - Mod loading with embedded filesystem (`//go:embed`) and local override support
 - `internal/profile/` - Profile management (global `~/.glovebox/` and project `.glovebox/`)
 - `internal/generator/` - Dockerfile generation from mods (`GenerateBase`, `GenerateProject`)
@@ -75,7 +77,7 @@ Glovebox is a Go CLI that generates and runs Docker containers for sandboxed dev
 
 Mods are YAML files embedded in the binary at `internal/mod/mods/`. They're organized by category:
 - `shells/` (bash, zsh, fish)
-- `editors/` (vim, neovim, helix)
+- `editors/` (vim, neovim, helix, emacs)
 - `tools/` (mise, tmux, homebrew)
 - `languages/` (nodejs)
 - `ai/` (claude-code, gemini-cli, opencode)
@@ -88,6 +90,16 @@ Load priority: project-local `.glovebox/mods/` → user global `~/.glovebox/mods
 2. **Project images** - Built from `.glovebox/profile.yaml`, extend base with project-specific tools
 
 The generator (`internal/generator/generator.go`) collects apt repos, packages, run_as_root commands, run_as_user commands, and env vars from mods and outputs a Dockerfile.
+
+### Container Persistence
+
+Glovebox uses persistent containers (not `--rm`). Each project gets its own named container (`glovebox-<dirname>-<hash>`). On exit, `docker diff` detects filesystem changes and prompts the user to commit them back to the image.
+
+Key functions in `cmd/run.go`:
+- `checkContainerExists()` / `checkContainerRunning()` - Container state detection
+- `createAndStartContainer()` - First run
+- `startContainer()` - Subsequent runs
+- `handlePostExit()` - Diff detection and commit prompt
 
 ## Adding New Mods
 

@@ -21,19 +21,19 @@ var (
 
 var cleanCmd = &cobra.Command{
 	Use:   "clean [directory]",
-	Short: "Remove glovebox Docker images and volumes",
-	Long: `Remove glovebox Docker images and home volumes.
+	Short: "Remove glovebox Docker images and containers",
+	Long: `Remove glovebox Docker images and containers.
 
 By default, cleans only the current project (or specified directory):
+  - Removes the project's Docker container
   - Removes the project's Docker image
-  - Removes the project's home volume
 
 With --base, also removes the base image (requires confirmation):
   - Everything above, plus glovebox:base
 
 With --all, removes everything glovebox-related (requires confirmation):
   - All glovebox:* images
-  - All glovebox-*-home volumes
+  - All glovebox-* containers
 
 Use --force to skip confirmation prompts.`,
 	Args: cobra.MaximumNArgs(1),
@@ -42,7 +42,7 @@ Use --force to skip confirmation prompts.`,
 
 func init() {
 	cleanCmd.Flags().BoolVar(&cleanBase, "base", false, "Also remove the base image (requires confirmation)")
-	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "Remove all glovebox images and volumes (requires confirmation)")
+	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "Remove all glovebox images and containers (requires confirmation)")
 	cleanCmd.Flags().BoolVarP(&cleanForce, "force", "f", false, "Skip confirmation prompts")
 	rootCmd.AddCommand(cleanCmd)
 }
@@ -81,18 +81,18 @@ func runClean(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolving path: %w", err)
 	}
 
-	// Calculate image and volume names
+	// Calculate image and container names
 	hash := sha256.Sum256([]byte(absPath))
 	shortHash := fmt.Sprintf("%x", hash)[:7]
 	dirName := filepath.Base(absPath)
 	imageName := fmt.Sprintf("glovebox:%s-%s", dirName, shortHash)
-	volumeName := fmt.Sprintf("glovebox-%s-%s-home", dirName, shortHash)
+	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
 
 	// Check if there's anything to clean
 	imageFound := imageExists(imageName)
-	volumeFound := volumeExists(volumeName)
+	containerFound := containerExistsForClean(containerName)
 
-	if !imageFound && !volumeFound {
+	if !imageFound && !containerFound {
 		yellow.Printf("No glovebox resources found for %s\n", collapsePath(absPath))
 		if cleanBase {
 			// Still try to clean base if requested
@@ -104,15 +104,16 @@ func runClean(cmd *cobra.Command, args []string) error {
 	// Clean project resources
 	fmt.Printf("Cleaning glovebox resources for %s\n", collapsePath(absPath))
 
-	if imageFound {
-		if err := removeImage(imageName, green); err != nil {
-			yellow.Printf("Warning: could not remove image %s: %v\n", imageName, err)
+	// Remove container first (must be done before image)
+	if containerFound {
+		if err := removeContainer(containerName, green); err != nil {
+			yellow.Printf("Warning: could not remove container %s: %v\n", containerName, err)
 		}
 	}
 
-	if volumeFound {
-		if err := removeVolume(volumeName, green); err != nil {
-			yellow.Printf("Warning: could not remove volume %s: %v\n", volumeName, err)
+	if imageFound {
+		if err := removeImage(imageName, green); err != nil {
+			yellow.Printf("Warning: could not remove image %s: %v\n", imageName, err)
 		}
 	}
 
@@ -191,29 +192,29 @@ func cleanAllGlovebox(yellow, green, red *color.Color) error {
 		return fmt.Errorf("listing images: %w", err)
 	}
 
-	// Find all glovebox volumes
-	volumes, err := findGloveboxVolumes()
+	// Find all glovebox containers
+	containers, err := findGloveboxContainers()
 	if err != nil {
-		return fmt.Errorf("listing volumes: %w", err)
+		return fmt.Errorf("listing containers: %w", err)
 	}
 
-	if len(images) == 0 && len(volumes) == 0 {
+	if len(images) == 0 && len(containers) == 0 {
 		yellow.Println("No glovebox resources found.")
 		return nil
 	}
 
 	if !cleanForce {
-		red.Println("Warning: This will remove ALL glovebox images and volumes:")
+		red.Println("Warning: This will remove ALL glovebox images and containers:")
+		if len(containers) > 0 {
+			fmt.Println("\nContainers:")
+			for _, c := range containers {
+				fmt.Printf("  - %s\n", c)
+			}
+		}
 		if len(images) > 0 {
 			fmt.Println("\nImages:")
 			for _, img := range images {
 				fmt.Printf("  - %s\n", img)
-			}
-		}
-		if len(volumes) > 0 {
-			fmt.Println("\nVolumes:")
-			for _, vol := range volumes {
-				fmt.Printf("  - %s\n", vol)
 			}
 		}
 		fmt.Print("\nContinue? [y/N] ")
@@ -224,17 +225,17 @@ func cleanAllGlovebox(yellow, green, red *color.Color) error {
 		}
 	}
 
+	// Remove all containers first (must be done before images)
+	for _, c := range containers {
+		if err := removeContainer(c, green); err != nil {
+			yellow.Printf("Warning: could not remove container %s: %v\n", c, err)
+		}
+	}
+
 	// Remove all images
 	for _, img := range images {
 		if err := removeImage(img, green); err != nil {
 			yellow.Printf("Warning: could not remove image %s: %v\n", img, err)
-		}
-	}
-
-	// Remove all volumes
-	for _, vol := range volumes {
-		if err := removeVolume(vol, green); err != nil {
-			yellow.Printf("Warning: could not remove volume %s: %v\n", vol, err)
 		}
 	}
 
@@ -258,22 +259,36 @@ func findGloveboxImages() ([]string, error) {
 	return images, nil
 }
 
-func findGloveboxVolumes() ([]string, error) {
-	cmd := exec.Command("docker", "volume", "ls", "--filter", "name=glovebox-", "--format", "{{.Name}}")
+func findGloveboxContainers() ([]string, error) {
+	cmd := exec.Command("docker", "container", "ls", "-a", "--filter", "name=glovebox-", "--format", "{{.Names}}")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
 
-	var volumes []string
+	var containers []string
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for _, line := range lines {
-		// Only include volumes that match the glovebox-*-home pattern
-		if line != "" && strings.HasSuffix(line, "-home") {
-			volumes = append(volumes, line)
+		if line != "" && strings.HasPrefix(line, "glovebox-") {
+			containers = append(containers, line)
 		}
 	}
-	return volumes, nil
+	return containers, nil
+}
+
+func containerExistsForClean(name string) bool {
+	cmd := exec.Command("docker", "container", "inspect", name)
+	return cmd.Run() == nil
+}
+
+func removeContainer(name string, green *color.Color) error {
+	// Force remove to handle both running and stopped containers
+	cmd := exec.Command("docker", "container", "rm", "-f", name)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	green.Printf("Removed container: %s\n", name)
+	return nil
 }
 
 func removeImage(name string, green *color.Color) error {
@@ -282,15 +297,6 @@ func removeImage(name string, green *color.Color) error {
 		return err
 	}
 	green.Printf("Removed image: %s\n", name)
-	return nil
-}
-
-func removeVolume(name string, green *color.Color) error {
-	cmd := exec.Command("docker", "volume", "rm", name)
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	green.Printf("Removed volume: %s\n", name)
 	return nil
 }
 

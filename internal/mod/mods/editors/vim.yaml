@@ -1,7 +1,6 @@
 name: vim
 description: Vim - the ubiquitous text editor
 category: editor
-install_phase: post_install
 requires:
   - tools/homebrew
 

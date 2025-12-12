@@ -1,7 +1,6 @@
 name: neovim
 description: Neovim - hyperextensible Vim-based text editor
 category: editor
-install_phase: post_install
 requires:
   - tools/homebrew
 

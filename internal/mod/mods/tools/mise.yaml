@@ -1,7 +1,6 @@
 name: mise
 description: Polyglot runtime version manager (replaces asdf, nvm, rbenv, etc.)
 category: tool
-install_phase: post_install
 requires:
   - tools/homebrew
 

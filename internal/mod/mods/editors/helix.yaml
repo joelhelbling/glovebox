@@ -1,7 +1,6 @@
 name: helix
 description: Helix - a post-modern modal text editor
 category: editor
-install_phase: post_install
 requires:
   - tools/homebrew
 
