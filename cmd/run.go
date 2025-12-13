@@ -132,17 +132,21 @@ func createAndStartContainer(name, imageName, hostPath, workspacePath string) er
 		"--hostname", "glovebox",
 	}
 
-	// Add environment variables if set
-	envVars := []string{
-		"ANTHROPIC_API_KEY",
-		"OPENAI_API_KEY",
-		"GOOGLE_API_KEY",
-		"GEMINI_API_KEY",
+	// Add environment variables from profile passthrough_env
+	passthroughEnv, err := profile.EffectivePassthroughEnv(hostPath)
+	if err != nil {
+		// Non-fatal: log warning and continue without passthrough vars
+		colorYellow.Printf("Warning: could not load passthrough env: %v\n", err)
 	}
-	for _, env := range envVars {
+	var passedVars []string
+	for _, env := range passthroughEnv {
 		if val := os.Getenv(env); val != "" {
 			dockerArgs = append(dockerArgs, "-e", fmt.Sprintf("%s=%s", env, val))
+			passedVars = append(passedVars, env)
 		}
+	}
+	if len(passedVars) > 0 {
+		colorDim.Printf("Passing through: %s\n", strings.Join(passedVars, ", "))
 	}
 
 	// Add mise trusted config path

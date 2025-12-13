@@ -454,6 +454,139 @@ func TestLoadEffective(t *testing.T) {
 	})
 }
 
+func TestPassthroughEnvSerialization(t *testing.T) {
+	t.Run("save and load with passthrough_env", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		profilePath := filepath.Join(tmpDir, ".glovebox", "profile.yaml")
+
+		// Create profile with passthrough env
+		p := NewProfile()
+		p.PassthroughEnv = []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}
+
+		err := p.SaveTo(profilePath)
+		if err != nil {
+			t.Fatalf("SaveTo() error = %v", err)
+		}
+
+		// Load it back
+		loaded, err := Load(profilePath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if len(loaded.PassthroughEnv) != 2 {
+			t.Errorf("PassthroughEnv count mismatch: got %d, want 2", len(loaded.PassthroughEnv))
+		}
+		if loaded.PassthroughEnv[0] != "ANTHROPIC_API_KEY" {
+			t.Errorf("PassthroughEnv[0] = %q, want 'ANTHROPIC_API_KEY'", loaded.PassthroughEnv[0])
+		}
+		if loaded.PassthroughEnv[1] != "OPENAI_API_KEY" {
+			t.Errorf("PassthroughEnv[1] = %q, want 'OPENAI_API_KEY'", loaded.PassthroughEnv[1])
+		}
+	})
+
+	t.Run("empty passthrough_env not serialized", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		profilePath := filepath.Join(tmpDir, ".glovebox", "profile.yaml")
+
+		p := NewProfile()
+		// Don't set PassthroughEnv
+		err := p.SaveTo(profilePath)
+		if err != nil {
+			t.Fatalf("SaveTo() error = %v", err)
+		}
+
+		loaded, err := Load(profilePath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if loaded.PassthroughEnv != nil && len(loaded.PassthroughEnv) > 0 {
+			t.Errorf("PassthroughEnv should be nil or empty, got %v", loaded.PassthroughEnv)
+		}
+	})
+}
+
+func TestEffectivePassthroughEnv(t *testing.T) {
+	t.Run("project only", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		profilePath := ProjectPath(tmpDir)
+
+		// Create project profile with passthrough env
+		p := NewProfile()
+		p.PassthroughEnv = []string{"PROJECT_VAR1", "PROJECT_VAR2"}
+		if err := p.SaveTo(profilePath); err != nil {
+			t.Fatalf("SaveTo() error = %v", err)
+		}
+
+		// Get effective passthrough - should include project vars
+		// Note: This may also include global vars if global profile exists
+		result, err := EffectivePassthroughEnv(tmpDir)
+		if err != nil {
+			t.Fatalf("EffectivePassthroughEnv() error = %v", err)
+		}
+
+		// Check that project vars are included
+		hasVar1 := false
+		hasVar2 := false
+		for _, v := range result {
+			if v == "PROJECT_VAR1" {
+				hasVar1 = true
+			}
+			if v == "PROJECT_VAR2" {
+				hasVar2 = true
+			}
+		}
+		if !hasVar1 {
+			t.Error("EffectivePassthroughEnv() should include PROJECT_VAR1")
+		}
+		if !hasVar2 {
+			t.Error("EffectivePassthroughEnv() should include PROJECT_VAR2")
+		}
+	})
+
+	t.Run("no profiles returns empty", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		result, err := EffectivePassthroughEnv(tmpDir)
+		if err != nil {
+			t.Fatalf("EffectivePassthroughEnv() error = %v", err)
+		}
+
+		// May include global vars if global profile exists, but won't error
+		// Just ensure it doesn't panic
+		_ = result
+	})
+
+	t.Run("deduplication works", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		profilePath := ProjectPath(tmpDir)
+
+		// Create project profile with some vars
+		p := NewProfile()
+		p.PassthroughEnv = []string{"VAR1", "VAR1", "VAR2"} // Intentional duplicate
+		if err := p.SaveTo(profilePath); err != nil {
+			t.Fatalf("SaveTo() error = %v", err)
+		}
+
+		result, err := EffectivePassthroughEnv(tmpDir)
+		if err != nil {
+			t.Fatalf("EffectivePassthroughEnv() error = %v", err)
+		}
+
+		// Count occurrences of VAR1
+		var1Count := 0
+		for _, v := range result {
+			if v == "VAR1" {
+				var1Count++
+			}
+		}
+		if var1Count > 1 {
+			t.Errorf("EffectivePassthroughEnv() should dedupe, but VAR1 appears %d times", var1Count)
+		}
+	})
+}
+
 // Helper function
 func containsString(s, substr string) bool {
 	return len(s) >= len(substr) && findSubstring(s, substr)

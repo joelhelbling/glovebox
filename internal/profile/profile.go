@@ -26,9 +26,10 @@ type BuildInfo struct {
 
 // Profile represents a glovebox configuration
 type Profile struct {
-	Version int       `yaml:"version"`
-	Mods    []string  `yaml:"mods"`
-	Build   BuildInfo `yaml:"build,omitempty"`
+	Version        int       `yaml:"version"`
+	Mods           []string  `yaml:"mods"`
+	PassthroughEnv []string  `yaml:"passthrough_env,omitempty"`
+	Build          BuildInfo `yaml:"build,omitempty"`
 
 	// Path is not serialized - it's the location this profile was loaded from
 	Path string `yaml:"-"`
@@ -238,4 +239,42 @@ func LoadGlobal() (*Profile, error) {
 func LoadProject(dir string) (*Profile, error) {
 	projectPath := ProjectPath(dir)
 	return Load(projectPath)
+}
+
+// EffectivePassthroughEnv returns the combined passthrough env vars from both
+// global and project profiles. Project profile vars are appended to global ones,
+// with duplicates removed (project takes precedence).
+func EffectivePassthroughEnv(projectDir string) ([]string, error) {
+	seen := make(map[string]bool)
+	var result []string
+
+	// Load global profile first
+	globalProfile, err := LoadGlobal()
+	if err != nil {
+		return nil, fmt.Errorf("loading global profile: %w", err)
+	}
+	if globalProfile != nil {
+		for _, env := range globalProfile.PassthroughEnv {
+			if !seen[env] {
+				seen[env] = true
+				result = append(result, env)
+			}
+		}
+	}
+
+	// Load project profile and add its vars (deduped)
+	projectProfile, err := LoadProject(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("loading project profile: %w", err)
+	}
+	if projectProfile != nil {
+		for _, env := range projectProfile.PassthroughEnv {
+			if !seen[env] {
+				seen[env] = true
+				result = append(result, env)
+			}
+		}
+	}
+
+	return result, nil
 }

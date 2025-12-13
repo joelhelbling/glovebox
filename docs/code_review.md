@@ -188,9 +188,10 @@ func dockerInspectContainer(name string) *exec.Cmd {
 
 ---
 
-### 7. Hardcoded Environment Variable List
+### 7. Hardcoded Environment Variable List ✅ DONE
 
 **Location:** `cmd/run.go:159-169`
+**Status:** Resolved - Added `passthrough_env` field to Profile struct
 
 ```go
 envVars := []string{
@@ -398,7 +399,7 @@ For an AI agent to address these issues incrementally:
 | 6 | Add path traversal validation | Low | Medium | ✅ Done |
 | 7 | Fix deprecated `strings.Title` | Low | Low | ✅ Done |
 | 8 | Standardize error handling | Medium | Medium | ✅ Done |
-| 9 | Make env passthrough configurable | Medium | Low | |
+| 9 | Make env passthrough configurable | Medium | Low | ✅ Done |
 | 10 | Centralize color definitions | Low | Low | ✅ Done |
 
 ---
