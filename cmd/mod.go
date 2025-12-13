@@ -145,21 +145,21 @@ func runModCreate(cmd *cobra.Command, args []string) error {
 description: TODO - describe what this mod provides
 category: %s
 
+# What this mod provides (optional, defaults to the mod name)
+# Use this to provide abstract capabilities that other mods can depend on
+# provides:
+#   - some-capability
+
 # Dependencies on other mods (optional)
+# Use concrete mod IDs for specific mods: tools/homebrew, shells/zsh-ubuntu
+# Use abstract names for capabilities: zsh (satisfied by any zsh-* mod)
 # requires:
-#   - base
-
-# APT repositories to add (optional)
-# apt_repos:
-#   - ppa:some/repo
-
-# APT packages to install (optional)
-# apt_packages:
-#   - some-package
+#   - tools/homebrew
 
 # Commands to run as root (optional)
+# Use this for package installation via apt/dnf/apk depending on target OS
 # run_as_root: |
-#   curl -fsSL https://example.com/install.sh | bash
+#   apt-get update && apt-get install -y some-package
 
 # Commands to run as ubuntu user (optional)
 # run_as_user: |
@@ -218,7 +218,7 @@ func runModList(cmd *cobra.Command, args []string) error {
 	}
 
 	// Sort categories in a logical order (not alphabetical)
-	categoryOrder := []string{"core", "shells", "tools", "editors", "languages", "ai"}
+	categoryOrder := []string{"os", "shells", "editors", "tools", "languages", "ai"}
 	categoryRank := make(map[string]int)
 	for i, cat := range categoryOrder {
 		categoryRank[cat] = i
@@ -267,9 +267,26 @@ func runModList(cmd *cobra.Command, args []string) error {
 				})
 				continue
 			}
+
+			// Check if this mod requires a specific OS
+			requiresOS := ""
+			for _, req := range m.Requires {
+				for _, osName := range mod.KnownOSNames {
+					if req == osName {
+						requiresOS = osName
+						break
+					}
+				}
+				if requiresOS != "" {
+					break
+				}
+			}
+
 			category.Mods = append(category.Mods, ui.ModInfo{
 				Name:        modName,
 				Description: m.Description,
+				Provides:    m.Provides,
+				RequiresOS:  requiresOS,
 			})
 		}
 		categories = append(categories, category)

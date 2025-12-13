@@ -21,7 +21,8 @@ type BuildInfo struct {
 	LastBuiltAt      time.Time `yaml:"last_built_at,omitempty"`
 	DockerfileDigest string    `yaml:"dockerfile_digest,omitempty"`
 	ImageName        string    `yaml:"image_name,omitempty"`
-	BaseDigest       string    `yaml:"base_digest,omitempty"` // For project profiles, tracks when base changed
+	BaseDigest       string    `yaml:"base_digest,omitempty"`  // For project profiles, tracks when base changed
+	ContentHash      string    `yaml:"content_hash,omitempty"` // Hash of mods list to detect manual edits
 }
 
 // Profile represents a glovebox configuration
@@ -170,6 +171,29 @@ func (p *Profile) HasMod(id string) bool {
 func (p *Profile) UpdateBuildInfo(digest string) {
 	p.Build.LastBuiltAt = time.Now().UTC()
 	p.Build.DockerfileDigest = digest
+}
+
+// ComputeContentHash computes a hash of the user-editable content (mods list)
+func (p *Profile) ComputeContentHash() string {
+	// Create a stable representation of the content
+	content := fmt.Sprintf("v%d:%v:%v", p.Version, p.Mods, p.PassthroughEnv)
+	hash := sha256.Sum256([]byte(content))
+	return fmt.Sprintf("%x", hash)[:12] // Short hash is sufficient
+}
+
+// UpdateContentHash computes and stores the content hash
+func (p *Profile) UpdateContentHash() {
+	p.Build.ContentHash = p.ComputeContentHash()
+}
+
+// WasManuallyEdited checks if the profile content differs from the stored hash.
+// Returns true if the content was edited after glovebox generated it.
+// Returns false if no hash is stored (legacy profiles) or content matches.
+func (p *Profile) WasManuallyEdited() bool {
+	if p.Build.ContentHash == "" {
+		return false // No hash stored, assume not edited (legacy profile)
+	}
+	return p.ComputeContentHash() != p.Build.ContentHash
 }
 
 // ImageName returns the Docker image name for this profile

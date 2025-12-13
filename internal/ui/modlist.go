@@ -9,9 +9,11 @@ import (
 
 // ModInfo represents a mod for display
 type ModInfo struct {
-	Name        string // just the mod name without category prefix
-	Description string
-	Error       bool
+	Name        string   // just the mod name without category prefix
+	Description string   // human-readable description
+	Provides    []string // what this mod provides (for display)
+	RequiresOS  string   // OS required by this mod (empty if OS-agnostic)
+	Error       bool     // true if there was an error loading this mod
 }
 
 // ModCategory represents a category of mods
@@ -93,10 +95,17 @@ func (m *ModList) Render(categories []ModCategory) string {
 			paddedName := fmt.Sprintf("%-*s", maxNameLen, mod.Name)
 			if mod.Error {
 				line("  " + nameStyle.Render(paddedName) + "  " + errStyle.Render("(error loading)"))
-			} else if mod.Description != "" {
-				line("  " + nameStyle.Render(paddedName) + "  " + descStyle.Render(mod.Description))
 			} else {
-				line("  " + nameStyle.Render(mod.Name))
+				// Build the line content
+				content := "  " + nameStyle.Render(paddedName)
+				if mod.Description != "" {
+					content += "  " + descStyle.Render(mod.Description)
+				}
+				// Add OS requirement indicator if present
+				if mod.RequiresOS != "" {
+					content += " " + descStyle.Render("["+mod.RequiresOS+"]")
+				}
+				line(content)
 			}
 		}
 	}
