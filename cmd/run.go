@@ -10,6 +10,7 @@ import (
 
 	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/profile"
+	"github.com/joelhelbling/glovebox/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -73,28 +74,62 @@ func runRun(cmd *cobra.Command, args []string) error {
 	containerExists := docker.ContainerExists(containerName)
 	containerRunning := docker.ContainerRunning(containerName)
 
-	fmt.Printf("Starting glovebox with workspace: %s\n", collapsePath(absPath))
-	fmt.Printf("Using image: %s\n", imageName)
-
 	// Mount workspace at /<dirName> so the prompt shows the project name
 	workspacePath := "/" + dirName
 
+	// Determine container status for banner
+	var containerStatus string
+	if containerRunning {
+		containerStatus = "running"
+	} else if containerExists {
+		containerStatus = "existing"
+	} else {
+		containerStatus = "new"
+	}
+
+	// Get passthrough env vars for banner (only relevant for new containers)
+	var passthroughVars []string
+	if !containerExists {
+		passthroughEnv, err := profile.EffectivePassthroughEnv(absPath)
+		if err != nil {
+			colorYellow.Printf("Warning: could not load passthrough env: %v\n", err)
+		} else {
+			result := docker.BuildRunArgs(docker.RunArgsConfig{
+				ContainerName:  containerName,
+				ImageName:      imageName,
+				HostPath:       absPath,
+				WorkspacePath:  workspacePath,
+				PassthroughEnv: passthroughEnv,
+				EnvLookup:      os.Getenv,
+			})
+			passthroughVars = result.PassedVars
+		}
+	}
+
+	// Display the banner
+	banner := ui.NewBanner()
+	banner.Print(ui.BannerInfo{
+		Workspace:       collapsePath(absPath),
+		Image:           imageName,
+		Container:       containerName,
+		ContainerStatus: containerStatus,
+		PassthroughEnv:  passthroughVars,
+	})
+
 	if containerRunning {
 		// Container is already running - attach to it
-		colorYellow.Printf("Container %s is already running. Attaching...\n", containerName)
+		colorYellow.Printf("Attaching to running container...\n")
 		return attachToContainer(containerName)
 	}
 
 	if containerExists {
 		// Container exists but stopped - start it
-		colorDim.Printf("Container: %s (existing)\n", containerName)
 		if err := startContainer(containerName, absPath, workspacePath); err != nil {
 			return err
 		}
 	} else {
-		// Create new container
-		colorDim.Printf("Container: %s (new)\n", containerName)
-		if err := createAndStartContainer(containerName, imageName, absPath, workspacePath); err != nil {
+		// Create new container (passthrough already computed above)
+		if err := createAndStartContainerWithEnv(containerName, imageName, absPath, workspacePath, passthroughVars); err != nil {
 			return err
 		}
 	}
@@ -122,13 +157,13 @@ func startContainer(name, hostPath, workspacePath string) error {
 	return docker.Run()
 }
 
-// createAndStartContainer creates a new container and starts it
-func createAndStartContainer(name, imageName, hostPath, workspacePath string) error {
-	// Get passthrough env vars from profiles
+// createAndStartContainerWithEnv creates a new container with pre-computed env vars
+func createAndStartContainerWithEnv(name, imageName, hostPath, workspacePath string, _ []string) error {
+	// Get passthrough env config from profiles
 	passthroughEnv, err := profile.EffectivePassthroughEnv(hostPath)
 	if err != nil {
-		// Non-fatal: log warning and continue without passthrough vars
-		colorYellow.Printf("Warning: could not load passthrough env: %v\n", err)
+		// Non-fatal: continue without passthrough vars
+		passthroughEnv = nil
 	}
 
 	// Build docker run arguments
@@ -140,10 +175,6 @@ func createAndStartContainer(name, imageName, hostPath, workspacePath string) er
 		PassthroughEnv: passthroughEnv,
 		EnvLookup:      os.Getenv,
 	})
-
-	if len(result.PassedVars) > 0 {
-		colorDim.Printf("Passing through: %s\n", strings.Join(result.PassedVars, ", "))
-	}
 
 	// Run docker
 	cmd := exec.Command("docker", result.Args...)
@@ -173,41 +204,34 @@ func handlePostExit(containerName, imageName string) error {
 		return nil
 	}
 
-	fmt.Println()
-	colorYellow.Println("Changes detected in container:")
-	for _, s := range summary {
-		fmt.Printf("  %s\n", s)
-	}
-
-	fmt.Println()
-	fmt.Println("What would you like to do?")
-	fmt.Println("  [y]es   - commit changes to image (fresh container next run)")
-	fmt.Println("  [n]o    - keep uncommitted changes (resume this container next run)")
-	fmt.Println("  [e]rase - discard changes (fresh container next run)")
-	fmt.Print("Choice: ")
+	// Display the prompt
+	prompt := ui.NewPrompt()
+	prompt.PrintPostExitPrompt(summary)
+	fmt.Print(prompt.RenderChoicePrompt())
 
 	switch getPostExitChoice() {
 	case "yes":
 		if err := commitContainer(containerName, imageName); err != nil {
-			colorYellow.Printf("Warning: could not commit changes: %v\n", err)
+			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not commit changes: %v", err)))
 			return nil
 		}
-		colorGreen.Printf("Changes committed to %s\n", imageName)
+		fmt.Print(prompt.RenderCommitSuccess(imageName))
 
 		// Remove the container so next run starts fresh from the committed image
 		if err := deleteContainer(containerName); err != nil {
-			colorYellow.Printf("Warning: could not remove container: %v\n", err)
+			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
 		}
 	case "erase":
 		if err := deleteContainer(containerName); err != nil {
-			colorYellow.Printf("Warning: could not remove container: %v\n", err)
+			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
 			return nil
 		}
-		colorDim.Println("Container removed. Next run will start fresh.")
+		fmt.Print(prompt.RenderEraseSuccess())
 	default:
 		// "no" - leave container as-is
-		colorDim.Println("Changes kept in container.")
+		fmt.Print(prompt.RenderKeepSuccess())
 	}
+	fmt.Println()
 
 	return nil
 }

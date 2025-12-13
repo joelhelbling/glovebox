@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/mod"
+	"github.com/joelhelbling/glovebox/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -216,29 +217,67 @@ func runModList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Sort categories for consistent output
-	var categories []string
-	for cat := range modsByCategory {
-		categories = append(categories, cat)
+	// Sort categories in a logical order (not alphabetical)
+	categoryOrder := []string{"core", "shells", "tools", "editors", "languages", "ai"}
+	categoryRank := make(map[string]int)
+	for i, cat := range categoryOrder {
+		categoryRank[cat] = i
 	}
-	sort.Strings(categories)
 
-	for _, category := range categories {
-		mods := modsByCategory[category]
-		sort.Strings(mods)
+	var categoryNames []string
+	for cat := range modsByCategory {
+		categoryNames = append(categoryNames, cat)
+	}
+	sort.Slice(categoryNames, func(i, j int) bool {
+		rankI, knownI := categoryRank[categoryNames[i]]
+		rankJ, knownJ := categoryRank[categoryNames[j]]
+		// Known categories sorted by rank, unknown categories at the end alphabetically
+		if knownI && knownJ {
+			return rankI < rankJ
+		}
+		if knownI {
+			return true
+		}
+		if knownJ {
+			return false
+		}
+		return categoryNames[i] < categoryNames[j]
+	})
 
-		colorBold.Printf("\n%s:\n", category)
-		for _, id := range mods {
+	// Build UI categories
+	var categories []ui.ModCategory
+	for _, categoryName := range categoryNames {
+		modIDs := modsByCategory[categoryName]
+		sort.Strings(modIDs)
+
+		category := ui.ModCategory{Name: categoryName}
+		for _, id := range modIDs {
+			// Extract just the mod name (after the category prefix, if any)
+			modName := id
+			if strings.Contains(id, "/") {
+				parts := strings.SplitN(id, "/", 2)
+				modName = parts[1]
+			}
+
 			m, err := mod.Load(id)
 			if err != nil {
-				fmt.Printf("  %s (error loading)\n", id)
+				category.Mods = append(category.Mods, ui.ModInfo{
+					Name:  modName,
+					Error: true,
+				})
 				continue
 			}
-			fmt.Printf("  %-20s", id)
-			colorDim.Printf(" %s\n", m.Description)
+			category.Mods = append(category.Mods, ui.ModInfo{
+				Name:        modName,
+				Description: m.Description,
+			})
 		}
+		categories = append(categories, category)
 	}
-	fmt.Println()
+
+	// Render
+	modList := ui.NewModList()
+	modList.Print(categories)
 
 	return nil
 }
