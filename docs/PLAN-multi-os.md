@@ -249,14 +249,16 @@ Update CLI commands to handle multi-OS properly.
 - `internal/profile/profile.go` - ContentHash field and detection methods
 - `internal/ui/modlist.go` - RequiresOS display support
 
-### Phase 5: Enhanced Init UX
+### Phase 5: Enhanced Init UX ✅
 
 Polish the init experience for power users.
 
-- [ ] Offer to open profile in `$EDITOR` after generation
-- [ ] Offer to create a templated custom mod
-- [ ] Add `mod new` or `mod create` command for scaffolding custom mods
-- [ ] Improve help text explaining customization escape hatches
+- [x] Offer to open profile in `$EDITOR` after generation
+- [x] Offer to create a templated custom mod
+- [x] Add `mod new` or `mod create` command for scaffolding custom mods (already existed)
+- [x] Improve help text explaining customization escape hatches
+- [x] Add post-init menu with options: build now, edit in $EDITOR, create custom mod, show next steps
+- [x] Add option to build image immediately after init
 
 ---
 
@@ -300,3 +302,4 @@ Consider:
 - **2024-12-13**: Completed Phase 2. Updated generator to use OS mod's `dockerfile_from` for FROM line. Removed `collectAptPackages()` and `collectAptRepos()`. Created `mods/os/ubuntu.yaml` (partial Phase 3) to enable testing. Updated generator and integration tests. All tests passing.
 - **2024-12-13**: Completed Phase 3. Created `os/fedora.yaml` and `os/alpine.yaml`. Created OS-specific shell variants (`zsh-ubuntu`, `zsh-fedora`, `zsh-alpine`, `fish-ubuntu`, `fish-fedora`, `fish-alpine`). Kept homebrew-based mods OS-agnostic with `provides:` added. Removed `base.yaml` and `apt_packages`/`apt_repos` from mod struct. Updated all tests. All tests passing.
 - **2024-12-13**: Completed Phase 4. Updated `init` command with OS selection prompt, compatible mod filtering, and content hash for detecting manual edits. Updated `add` command with OS compatibility validation and variant suggestions. Updated `mod list` to show OS category first and display OS requirement badges. Updated `mod create` template to remove deprecated apt fields. Added profile protection with ContentHash. All tests passing.
+- **2024-12-13**: Completed Phase 5. Enhanced init UX with post-init menu offering: build now, edit in $EDITOR, create custom mod, or show next steps. Added comprehensive customization documentation to init --help. Updated showNextSteps to include customization options. All tests passing.

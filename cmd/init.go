@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,7 +37,19 @@ This defines your standard development environment with your preferred
 shell, editor, and tools. Build it once with 'glovebox build --base'.
 
 Without --base, creates a project-specific profile (.glovebox/profile.yaml)
-that extends the base image with additional tools for that project.`,
+that extends the base image with additional tools for that project.
+
+CUSTOMIZATION:
+
+After init, you can customize your environment in several ways:
+
+  • Edit profile.yaml directly to add/remove mods or change settings
+  • Create custom mods with 'glovebox mod create <name>'
+  • Override built-in mods by copying them to .glovebox/mods/
+  • Use 'glovebox mod cat <mod>' to view any mod's configuration
+
+Custom mods can be project-local (.glovebox/mods/) or global (~/.glovebox/mods/).
+See 'glovebox mod --help' for more details.`,
 	RunE: runInit,
 }
 
@@ -106,16 +119,129 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	colorGreen.Printf("✓ Profile created at %s\n", profilePath)
+
+	// Offer post-init options
+	reader := bufio.NewReader(os.Stdin)
+	offerPostInitOptions(reader, profilePath, initBase)
+
+	return nil
+}
+
+// offerPostInitOptions prompts the user with optional next steps after profile creation
+func offerPostInitOptions(reader *bufio.Reader, profilePath string, isBase bool) {
+	fmt.Println("\nWhat would you like to do next?")
+	fmt.Println("  1) Build the image now")
+	fmt.Println("  2) Edit the profile in $EDITOR")
+	fmt.Println("  3) Create a custom mod")
+	fmt.Println("  4) Done (show next steps)")
+	fmt.Print("\nSelect option [4]: ")
+
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	switch input {
+	case "1":
+		// Build the image
+		fmt.Println()
+		if isBase {
+			runBuildCommand(true)
+		} else {
+			runBuildCommand(false)
+		}
+	case "2":
+		// Open in editor
+		if err := openInEditor(profilePath); err != nil {
+			colorYellow.Printf("Could not open editor: %v\n", err)
+			fmt.Println("You can manually edit:", profilePath)
+		}
+	case "3":
+		// Create custom mod
+		fmt.Print("\nEnter mod name (e.g., 'my-tool' or 'tools/my-tool'): ")
+		modName, _ := reader.ReadString('\n')
+		modName = strings.TrimSpace(modName)
+		if modName != "" {
+			createCustomMod(modName, isBase)
+		}
+	default:
+		// Show next steps
+		showNextSteps(isBase)
+	}
+}
+
+// openInEditor opens a file in the user's preferred editor
+func openInEditor(filePath string) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = os.Getenv("VISUAL")
+	}
+	if editor == "" {
+		// Try common editors
+		for _, e := range []string{"vim", "vi", "nano"} {
+			if _, err := exec.LookPath(e); err == nil {
+				editor = e
+				break
+			}
+		}
+	}
+	if editor == "" {
+		return fmt.Errorf("no editor found (set $EDITOR)")
+	}
+
+	cmd := exec.Command(editor, filePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// createCustomMod runs the mod create command
+func createCustomMod(name string, isGlobal bool) {
+	args := []string{"mod", "create", name}
+	if isGlobal {
+		args = append(args, "--global")
+	}
+
+	fmt.Printf("\nCreating mod '%s'...\n", name)
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		colorYellow.Printf("Error creating mod: %v\n", err)
+	}
+}
+
+// runBuildCommand runs the build command
+func runBuildCommand(isBase bool) {
+	args := []string{"build"}
+	if isBase {
+		args = append(args, "--base")
+	}
+
+	fmt.Println("Building image...")
+	cmd := exec.Command(os.Args[0], args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		colorYellow.Printf("Build failed: %v\n", err)
+	}
+}
+
+// showNextSteps displays the traditional next steps message
+func showNextSteps(isBase bool) {
 	fmt.Println("\nNext steps:")
-	if initBase {
+	if isBase {
 		fmt.Println("  glovebox build --base   # Build the base image (glovebox:base)")
 		fmt.Println("  glovebox run            # Run glovebox in any directory")
 	} else {
 		fmt.Println("  glovebox build          # Build the project image")
 		fmt.Println("  glovebox run            # Run glovebox in this directory")
 	}
-
-	return nil
+	fmt.Println("\nCustomization options:")
+	fmt.Println("  glovebox mod create <name>   # Create a custom mod")
+	fmt.Println("  glovebox mod list            # See available mods")
+	fmt.Println("  $EDITOR <profile-path>       # Edit profile directly")
 }
 
 func interactiveModSelection() ([]string, error) {
