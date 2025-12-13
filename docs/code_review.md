@@ -16,10 +16,11 @@ Glovebox is a well-structured Go CLI for creating sandboxed Docker development e
 
 ## Critical Issues
 
-### 1. No Test Coverage
+### 1. No Test Coverage ✅ DONE
 
 **Location:** Entire codebase
 **Severity:** High
+**Status:** Resolved - Added 139 test cases across 5 packages
 
 The codebase has zero test files. This is the most significant issue for AI-maintained code.
 
@@ -39,12 +40,14 @@ The codebase has zero test files. This is the most significant issue for AI-main
 
 ---
 
-### 2. Duplicated Container/Image Helper Functions
+### 2. Duplicated Container/Image Helper Functions ✅ DONE
 
 **Locations:**
 - `cmd/run.go:114-127` - `checkContainerExists`, `checkContainerRunning`
 - `cmd/status.go:152-164` - `containerExists`, `containerRunning`
 - `cmd/clean.go:254-257` - `containerExistsForClean`
+
+**Status:** Resolved - Extracted to `internal/docker/` package
 
 **Issue:** Three separate implementations of essentially the same Docker inspection logic.
 
@@ -80,12 +83,14 @@ func GetImageDigest(name string) (string, error)
 
 ---
 
-### 3. Duplicated Container Name Generation
+### 3. Duplicated Container Name Generation ✅ DONE
 
 **Locations:**
 - `cmd/run.go:74-77`
 - `cmd/clean.go:88-92`
 - `cmd/status.go:126-129`
+
+**Status:** Resolved - Added `ContainerName()` and `ImageName()` to `internal/docker/` package
 
 **Issue:** Container name calculation logic duplicated in three places.
 
@@ -202,9 +207,10 @@ envVars := []string{
 
 ---
 
-### 8. Unused Function
+### 8. Unused Function ✅ DONE
 
 **Location:** `cmd/status.go:182-190`
+**Status:** Resolved - Removed during Docker helper extraction
 
 ```go
 func volumeExists(name string) bool {
@@ -364,8 +370,8 @@ func sortStrings(s []string) {
 
 ### Suggestions for AI Maintainability
 
-1. **Add `internal/docker/` package** - Centralize all Docker interactions
-2. **Add `internal/naming/` package** - Container/image name generation
+1. **Add `internal/docker/` package** - Centralize all Docker interactions ✅ Done
+2. **Add `internal/naming/` package** - Container/image name generation ✅ Done (merged into `internal/docker/`)
 3. **Consider interfaces** - For Docker operations, enables mocking in tests
 4. **Add structured logging** - Would help debug AI-generated changes
 
@@ -375,18 +381,18 @@ func sortStrings(s []string) {
 
 For an AI agent to address these issues incrementally:
 
-| Priority | Issue | Effort | Impact |
-|----------|-------|--------|--------|
-| 1 | Add test infrastructure | Medium | High |
-| 2 | Extract Docker helpers to `internal/docker/` | Low | High |
-| 3 | Consolidate container name generation | Low | Medium |
-| 4 | Fix `go.mod` indirect markers | Trivial | Low |
-| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low |
-| 6 | Add path traversal validation | Low | Medium |
-| 7 | Fix deprecated `strings.Title` | Low | Low |
-| 8 | Standardize error handling | Medium | Medium |
-| 9 | Make env passthrough configurable | Medium | Low |
-| 10 | Centralize color definitions | Low | Low |
+| Priority | Issue | Effort | Impact | Status |
+|----------|-------|--------|--------|--------|
+| 1 | Add test infrastructure | Medium | High | ✅ Done |
+| 2 | Extract Docker helpers to `internal/docker/` | Low | High | ✅ Done |
+| 3 | Consolidate container name generation | Low | Medium | ✅ Done |
+| 4 | Fix `go.mod` indirect markers | Trivial | Low | |
+| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | Partial (`volumeExists` removed) |
+| 6 | Add path traversal validation | Low | Medium | |
+| 7 | Fix deprecated `strings.Title` | Low | Low | |
+| 8 | Standardize error handling | Medium | Medium | |
+| 9 | Make env passthrough configurable | Medium | Low | |
+| 10 | Centralize color definitions | Low | Low | |
 
 ---
 
