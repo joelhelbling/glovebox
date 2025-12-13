@@ -117,9 +117,10 @@ func ContainerName(dir string) string {
 
 ## Moderate Issues
 
-### 4. Inconsistent Error Handling Patterns
+### 4. Inconsistent Error Handling Patterns ✅ DONE
 
 **Location:** Various command files
+**Status:** Resolved - All errors now wrapped with context using `%w`
 
 **Issue:** Mix of error handling styles:
 
@@ -395,7 +396,7 @@ For an AI agent to address these issues incrementally:
 | 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | ✅ Done |
 | 6 | Add path traversal validation | Low | Medium | ✅ Done |
 | 7 | Fix deprecated `strings.Title` | Low | Low | ✅ Done |
-| 8 | Standardize error handling | Medium | Medium | |
+| 8 | Standardize error handling | Medium | Medium | ✅ Done |
 | 9 | Make env passthrough configurable | Medium | Low | |
 | 10 | Centralize color definitions | Low | Low | |
 

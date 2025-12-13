@@ -46,7 +46,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		var err error
 		profilePath, err = profile.GlobalPath()
 		if err != nil {
-			return err
+			return fmt.Errorf("getting global profile path: %w", err)
 		}
 	} else {
 		cwd, err := os.Getwd()
@@ -72,7 +72,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Interactive mod selection
 	selectedMods, err := interactiveModSelection()
 	if err != nil {
-		return err
+		return fmt.Errorf("selecting mods: %w", err)
 	}
 
 	if len(selectedMods) == 0 {

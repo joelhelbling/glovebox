@@ -40,7 +40,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Check global profile
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
-		return err
+		return fmt.Errorf("checking global profile: %w", err)
 	}
 
 	bold.Println("Base Image:")
@@ -74,7 +74,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Check project profile
 	projectProfile, err := profile.LoadProject(cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("checking project profile: %w", err)
 	}
 
 	bold.Println("Project Image:")

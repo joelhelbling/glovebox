@@ -62,7 +62,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	// Check for project profile first
 	projectProfile, err := profile.LoadProject(cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("checking project profile: %w", err)
 	}
 
 	if projectProfile != nil {
@@ -73,7 +73,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	// No project profile - check for global profile and build base
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
-		return err
+		return fmt.Errorf("checking global profile: %w", err)
 	}
 
 	if globalProfile != nil {
@@ -86,7 +86,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 func buildBaseImage(green, yellow *color.Color) error {
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
-		return err
+		return fmt.Errorf("loading global profile: %w", err)
 	}
 	if globalProfile == nil {
 		return fmt.Errorf("no global profile found. Run 'glovebox init --global' first")

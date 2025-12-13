@@ -229,7 +229,7 @@ func (p *Profile) DockerfilePath() string {
 func LoadGlobal() (*Profile, error) {
 	globalPath, err := GlobalPath()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading global profile: %w", err)
 	}
 	return Load(globalPath)
 }

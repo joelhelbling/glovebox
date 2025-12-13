@@ -351,7 +351,7 @@ func determineImage(dir string) (string, error) {
 	// Check for project profile
 	projectProfile, err := profile.LoadProject(dir)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("checking project profile: %w", err)
 	}
 
 	if projectProfile != nil {
@@ -374,7 +374,7 @@ func determineImage(dir string) (string, error) {
 		// Check if global profile exists
 		globalProfile, err := profile.LoadGlobal()
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("checking global profile: %w", err)
 		}
 
 		if globalProfile == nil {
