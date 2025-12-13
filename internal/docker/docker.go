@@ -73,3 +73,62 @@ func ImageName(dir string) string {
 
 	return fmt.Sprintf("glovebox:%s-%s", dirName, shortHash)
 }
+
+// RunArgsConfig holds the configuration for building docker run arguments.
+type RunArgsConfig struct {
+	ContainerName  string
+	ImageName      string
+	HostPath       string
+	WorkspacePath  string
+	PassthroughEnv []string            // Environment variable names to pass through
+	EnvLookup      func(string) string // Function to look up env var values (defaults to os.Getenv)
+}
+
+// RunArgsResult contains the docker run arguments and metadata about what was configured.
+type RunArgsResult struct {
+	Args        []string // The docker run arguments
+	PassedVars  []string // Names of env vars that were actually passed through
+	MissingVars []string // Names of env vars that were requested but not set
+}
+
+// BuildRunArgs constructs the arguments for a docker run command.
+// This is extracted to allow testing without actually running docker.
+func BuildRunArgs(cfg RunArgsConfig) RunArgsResult {
+	envLookup := cfg.EnvLookup
+	if envLookup == nil {
+		envLookup = func(key string) string { return "" }
+	}
+
+	args := []string{
+		"run", "-it",
+		"--name", cfg.ContainerName,
+		"-v", fmt.Sprintf("%s:%s", cfg.HostPath, cfg.WorkspacePath),
+		"-w", cfg.WorkspacePath,
+		"--hostname", "glovebox",
+	}
+
+	var passedVars []string
+	var missingVars []string
+
+	// Add environment variables from passthrough list
+	for _, env := range cfg.PassthroughEnv {
+		if val := envLookup(env); val != "" {
+			args = append(args, "-e", fmt.Sprintf("%s=%s", env, val))
+			passedVars = append(passedVars, env)
+		} else {
+			missingVars = append(missingVars, env)
+		}
+	}
+
+	// Add mise trusted config path
+	args = append(args, "-e", fmt.Sprintf("MISE_TRUSTED_CONFIG_PATHS=%s:%s/**", cfg.WorkspacePath, cfg.WorkspacePath))
+
+	// Add image name
+	args = append(args, cfg.ImageName)
+
+	return RunArgsResult{
+		Args:        args,
+		PassedVars:  passedVars,
+		MissingVars: missingVars,
+	}
+}

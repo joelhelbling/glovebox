@@ -159,6 +159,188 @@ func TestContainerNameAndImageNameConsistency(t *testing.T) {
 	})
 }
 
+func TestBuildRunArgs(t *testing.T) {
+	t.Run("basic args structure", func(t *testing.T) {
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName: "my-container",
+			ImageName:     "my-image:latest",
+			HostPath:      "/home/user/project",
+			WorkspacePath: "/project",
+		})
+
+		args := result.Args
+
+		// Check for required arguments
+		if !containsArg(args, "run") {
+			t.Error("expected 'run' in args")
+		}
+		if !containsArg(args, "-it") {
+			t.Error("expected '-it' in args")
+		}
+		if !containsArg(args, "--name") {
+			t.Error("expected '--name' in args")
+		}
+		if !containsArg(args, "my-container") {
+			t.Error("expected container name in args")
+		}
+		if !containsArg(args, "-v") {
+			t.Error("expected '-v' in args")
+		}
+		if !containsArg(args, "/home/user/project:/project") {
+			t.Error("expected volume mount in args")
+		}
+		if !containsArg(args, "-w") {
+			t.Error("expected '-w' in args")
+		}
+		if !containsArg(args, "/project") {
+			t.Error("expected workdir in args")
+		}
+		if !containsArg(args, "--hostname") {
+			t.Error("expected '--hostname' in args")
+		}
+		if !containsArg(args, "glovebox") {
+			t.Error("expected 'glovebox' hostname in args")
+		}
+
+		// Image should be last
+		if args[len(args)-1] != "my-image:latest" {
+			t.Errorf("expected image name as last arg, got %q", args[len(args)-1])
+		}
+	})
+
+	t.Run("passthrough env vars are added", func(t *testing.T) {
+		mockEnv := map[string]string{
+			"API_KEY":   "secret123",
+			"OTHER_VAR": "value456",
+		}
+
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName:  "test",
+			ImageName:      "test:latest",
+			HostPath:       "/path",
+			WorkspacePath:  "/workspace",
+			PassthroughEnv: []string{"API_KEY", "OTHER_VAR"},
+			EnvLookup:      func(k string) string { return mockEnv[k] },
+		})
+
+		// Check that -e flags are present
+		argsStr := strings.Join(result.Args, " ")
+		if !strings.Contains(argsStr, "-e API_KEY=secret123") {
+			t.Error("expected '-e API_KEY=secret123' in args")
+		}
+		if !strings.Contains(argsStr, "-e OTHER_VAR=value456") {
+			t.Error("expected '-e OTHER_VAR=value456' in args")
+		}
+
+		// Check PassedVars
+		if !containsString(result.PassedVars, "API_KEY") {
+			t.Error("expected API_KEY in PassedVars")
+		}
+		if !containsString(result.PassedVars, "OTHER_VAR") {
+			t.Error("expected OTHER_VAR in PassedVars")
+		}
+	})
+
+	t.Run("unset env vars are tracked in MissingVars", func(t *testing.T) {
+		mockEnv := map[string]string{
+			"SET_VAR": "value",
+		}
+
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName:  "test",
+			ImageName:      "test:latest",
+			HostPath:       "/path",
+			WorkspacePath:  "/workspace",
+			PassthroughEnv: []string{"SET_VAR", "UNSET_VAR"},
+			EnvLookup:      func(k string) string { return mockEnv[k] },
+		})
+
+		if !containsString(result.PassedVars, "SET_VAR") {
+			t.Error("expected SET_VAR in PassedVars")
+		}
+		if !containsString(result.MissingVars, "UNSET_VAR") {
+			t.Error("expected UNSET_VAR in MissingVars")
+		}
+
+		// UNSET_VAR should NOT appear in args
+		argsStr := strings.Join(result.Args, " ")
+		if strings.Contains(argsStr, "UNSET_VAR") {
+			t.Error("unset var should not appear in docker args")
+		}
+	})
+
+	t.Run("mise trusted config path is always added", func(t *testing.T) {
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName: "test",
+			ImageName:     "test:latest",
+			HostPath:      "/path",
+			WorkspacePath: "/myworkspace",
+		})
+
+		argsStr := strings.Join(result.Args, " ")
+		expected := "MISE_TRUSTED_CONFIG_PATHS=/myworkspace:/myworkspace/**"
+		if !strings.Contains(argsStr, expected) {
+			t.Errorf("expected MISE_TRUSTED_CONFIG_PATHS with workspace path, got args: %s", argsStr)
+		}
+	})
+
+	t.Run("nil EnvLookup defaults to returning empty", func(t *testing.T) {
+		// Should not panic with nil EnvLookup
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName:  "test",
+			ImageName:      "test:latest",
+			HostPath:       "/path",
+			WorkspacePath:  "/workspace",
+			PassthroughEnv: []string{"SOME_VAR"},
+			EnvLookup:      nil, // Explicitly nil
+		})
+
+		// SOME_VAR should be in MissingVars since default lookup returns ""
+		if !containsString(result.MissingVars, "SOME_VAR") {
+			t.Error("expected SOME_VAR in MissingVars with nil EnvLookup")
+		}
+	})
+
+	t.Run("empty passthrough list produces no extra -e flags", func(t *testing.T) {
+		result := BuildRunArgs(RunArgsConfig{
+			ContainerName:  "test",
+			ImageName:      "test:latest",
+			HostPath:       "/path",
+			WorkspacePath:  "/workspace",
+			PassthroughEnv: []string{},
+		})
+
+		// Count -e flags (should only have MISE_TRUSTED_CONFIG_PATHS)
+		eCount := 0
+		for _, arg := range result.Args {
+			if arg == "-e" {
+				eCount++
+			}
+		}
+		if eCount != 1 {
+			t.Errorf("expected exactly 1 -e flag (MISE), got %d", eCount)
+		}
+	})
+}
+
+func containsArg(args []string, target string) bool {
+	for _, arg := range args {
+		if arg == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
 // Note: ContainerExists, ContainerRunning, ImageExists, and GetImageDigest
 // require a running Docker daemon to test properly. These would be better
 // suited for integration tests. For unit tests, we verify the name generation

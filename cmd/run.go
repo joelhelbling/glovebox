@@ -124,44 +124,34 @@ func startContainer(name, hostPath, workspacePath string) error {
 
 // createAndStartContainer creates a new container and starts it
 func createAndStartContainer(name, imageName, hostPath, workspacePath string) error {
-	dockerArgs := []string{
-		"run", "-it",
-		"--name", name,
-		"-v", fmt.Sprintf("%s:%s", hostPath, workspacePath),
-		"-w", workspacePath,
-		"--hostname", "glovebox",
-	}
-
-	// Add environment variables from profile passthrough_env
+	// Get passthrough env vars from profiles
 	passthroughEnv, err := profile.EffectivePassthroughEnv(hostPath)
 	if err != nil {
 		// Non-fatal: log warning and continue without passthrough vars
 		colorYellow.Printf("Warning: could not load passthrough env: %v\n", err)
 	}
-	var passedVars []string
-	for _, env := range passthroughEnv {
-		if val := os.Getenv(env); val != "" {
-			dockerArgs = append(dockerArgs, "-e", fmt.Sprintf("%s=%s", env, val))
-			passedVars = append(passedVars, env)
-		}
-	}
-	if len(passedVars) > 0 {
-		colorDim.Printf("Passing through: %s\n", strings.Join(passedVars, ", "))
-	}
 
-	// Add mise trusted config path
-	dockerArgs = append(dockerArgs, "-e", fmt.Sprintf("MISE_TRUSTED_CONFIG_PATHS=%s:%s/**", workspacePath, workspacePath))
+	// Build docker run arguments
+	result := docker.BuildRunArgs(docker.RunArgsConfig{
+		ContainerName:  name,
+		ImageName:      imageName,
+		HostPath:       hostPath,
+		WorkspacePath:  workspacePath,
+		PassthroughEnv: passthroughEnv,
+		EnvLookup:      os.Getenv,
+	})
 
-	// Add image name
-	dockerArgs = append(dockerArgs, imageName)
+	if len(result.PassedVars) > 0 {
+		colorDim.Printf("Passing through: %s\n", strings.Join(result.PassedVars, ", "))
+	}
 
 	// Run docker
-	docker := exec.Command("docker", dockerArgs...)
-	docker.Stdin = os.Stdin
-	docker.Stdout = os.Stdout
-	docker.Stderr = os.Stderr
+	cmd := exec.Command("docker", result.Args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	return docker.Run()
+	return cmd.Run()
 }
 
 // handlePostExit checks for container changes and offers to commit them
