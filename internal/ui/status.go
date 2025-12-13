@@ -49,10 +49,7 @@ func NewStatus() *Status {
 func (s *Status) Render(sections []StatusSection) string {
 	var sb strings.Builder
 
-	for i, section := range sections {
-		if i > 0 {
-			sb.WriteString("\n")
-		}
+	for _, section := range sections {
 		sb.WriteString(s.renderSection(section))
 	}
 

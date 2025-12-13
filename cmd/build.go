@@ -167,6 +167,14 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 
 		// Case 1: Dockerfile matches what we'd generate - no changes needed
 		if existingDigest == newDigest {
+			// Still update build info if missing
+			if p.Build.DockerfileDigest == "" {
+				p.UpdateBuildInfo(newDigest)
+				p.Build.ImageName = imageName
+				if err := p.Save(); err != nil {
+					return fmt.Errorf("saving profile: %w", err)
+				}
+			}
 			colorGreen.Printf("✓ Dockerfile is already up to date (%s)\n", dockerfilePath)
 			if !buildGenerate {
 				return runDockerBuild(dockerfilePath, imageName)

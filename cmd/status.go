@@ -59,6 +59,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Render
 	status := ui.NewStatus()
 	status.Print(sections)
+	fmt.Print(status.RenderLogo())
 	fmt.Println()
 
 	return nil
