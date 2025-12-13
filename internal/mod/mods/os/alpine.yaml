@@ -1,0 +1,30 @@
+name: alpine
+description: Alpine Linux base image (lightweight, musl-based)
+category: os
+dockerfile_from: alpine:3.20
+provides:
+  - base
+
+run_as_root: |
+  # Install core packages
+  apk add --no-cache \
+    curl \
+    wget \
+    git \
+    build-base \
+    unzip \
+    ca-certificates \
+    gnupg \
+    sudo \
+    jq \
+    libffi-dev \
+    yaml-dev \
+    bash \
+    shadow
+
+  # Create the ubuntu user (for compatibility with other mods)
+  adduser -D -s /bin/bash -u 1000 ubuntu
+  echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu
+  chmod 0440 /etc/sudoers.d/ubuntu
+  mkdir -p /home/ubuntu/.local/bin
+  chown -R ubuntu:ubuntu /home/ubuntu

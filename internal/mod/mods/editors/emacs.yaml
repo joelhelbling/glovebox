@@ -3,6 +3,8 @@ description: Emacs - the extensible, customizable, self-documenting real-time di
 category: editor
 requires:
   - tools/homebrew
+provides:
+  - emacs
 
 run_as_user: |
   brew install emacs

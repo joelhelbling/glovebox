@@ -1,0 +1,18 @@
+name: zsh-ubuntu
+description: Z shell with sensible defaults (Ubuntu)
+category: shell
+requires:
+  - ubuntu
+provides:
+  - zsh
+
+run_as_root: |
+  apt-get update && apt-get install -y zsh && rm -rf /var/lib/apt/lists/*
+  usermod -s /usr/bin/zsh ubuntu
+  mkdir -p /home/ubuntu/.config/zsh
+  chown -R ubuntu:ubuntu /home/ubuntu/.config/zsh
+
+env:
+  SHELL: /usr/bin/zsh
+
+user_shell: /usr/bin/zsh

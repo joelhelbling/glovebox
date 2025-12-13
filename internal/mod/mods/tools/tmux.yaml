@@ -3,6 +3,8 @@ description: Terminal multiplexer with tmuxp session manager
 category: tool
 requires:
   - tools/homebrew
+provides:
+  - tmux
 
 run_as_user: |
   brew install tmux

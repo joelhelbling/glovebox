@@ -1,0 +1,18 @@
+name: fish-fedora
+description: Fish shell - the friendly interactive shell (Fedora)
+category: shell
+requires:
+  - fedora
+provides:
+  - fish
+
+run_as_root: |
+  dnf install -y fish && dnf clean all
+  usermod -s /usr/bin/fish ubuntu
+  mkdir -p /home/ubuntu/.config/fish
+  chown -R ubuntu:ubuntu /home/ubuntu/.config/fish
+
+env:
+  SHELL: /usr/bin/fish
+
+user_shell: /usr/bin/fish

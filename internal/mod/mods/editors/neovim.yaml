@@ -3,6 +3,8 @@ description: Neovim - hyperextensible Vim-based text editor
 category: editor
 requires:
   - tools/homebrew
+provides:
+  - neovim
 
 run_as_user: |
   brew install neovim

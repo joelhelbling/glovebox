@@ -169,49 +169,49 @@ Update the Dockerfile generator to use the new schema.
 
 **Note:** Created `mods/os/ubuntu.yaml` early (partial Phase 3 work) to enable testing.
 
-### Phase 3: Create OS Mods & Migrate Existing Mods
+### Phase 3: Create OS Mods & Migrate Existing Mods ✅
 
-Create the embedded OS mods and convert existing mods to OS variants.
+Create the embedded OS mods and convert mods that need OS-specific package installation.
 
 **Create OS mods:**
 - [x] Create `mods/os/ubuntu.yaml` with base Ubuntu setup (done in Phase 2)
-- [ ] Create `mods/os/fedora.yaml` with base Fedora setup
-- [ ] Create `mods/os/alpine.yaml` with base Alpine setup
+- [x] Create `mods/os/fedora.yaml` with base Fedora setup
+- [x] Create `mods/os/alpine.yaml` with base Alpine setup
 
-**Migrate existing mods (for each existing mod, create 3 variants):**
+**Create OS-specific shell variants (require package manager installation):**
 
 Shells:
-- [ ] `bash.yaml` → `bash-ubuntu.yaml`, `bash-fedora.yaml`, `bash-alpine.yaml`
-- [ ] `zsh.yaml` → `zsh-ubuntu.yaml`, `zsh-fedora.yaml`, `zsh-alpine.yaml`
-- [ ] `fish.yaml` → `fish-ubuntu.yaml`, `fish-fedora.yaml`, `fish-alpine.yaml`
-- [ ] Add `provides: [bash]`, `provides: [zsh]`, etc. to each
+- [x] `bash.yaml` - kept OS-agnostic (bash pre-installed on all OSes), added `provides: [bash]`
+- [x] `zsh.yaml` → `zsh-ubuntu.yaml`, `zsh-fedora.yaml`, `zsh-alpine.yaml` with `provides: [zsh]`
+- [x] `fish.yaml` → `fish-ubuntu.yaml`, `fish-fedora.yaml`, `fish-alpine.yaml` with `provides: [fish]`
 
-Editors:
-- [ ] `vim.yaml` → `vim-ubuntu.yaml`, `vim-fedora.yaml`, `vim-alpine.yaml`
-- [ ] `neovim.yaml` → `neovim-ubuntu.yaml`, `neovim-fedora.yaml`, `neovim-alpine.yaml`
-- [ ] `helix.yaml` → `helix-ubuntu.yaml`, `helix-fedora.yaml`, `helix-alpine.yaml`
-- [ ] `emacs.yaml` → `emacs-ubuntu.yaml`, `emacs-fedora.yaml`, `emacs-alpine.yaml`
-- [ ] Add `provides: [vim]`, `provides: [neovim]`, etc. to each
+**Keep OS-agnostic mods (use homebrew/mise which works across all OSes):**
 
-Tools:
-- [ ] `mise.yaml` → `mise-ubuntu.yaml`, `mise-fedora.yaml`, `mise-alpine.yaml`
-- [ ] `tmux.yaml` → `tmux-ubuntu.yaml`, `tmux-fedora.yaml`, `tmux-alpine.yaml`
-- [ ] `homebrew.yaml` → decide: keep for macOS-in-Docker? remove? OS-specific?
+Editors (all use `brew install`, kept OS-agnostic with `provides:`):
+- [x] `vim.yaml` - added `provides: [vim]`
+- [x] `neovim.yaml` - added `provides: [neovim]`
+- [x] `helix.yaml` - added `provides: [helix]`
+- [x] `emacs.yaml` - added `provides: [emacs]`
 
-Languages:
-- [ ] `nodejs.yaml` → `nodejs-ubuntu.yaml`, `nodejs-fedora.yaml`, `nodejs-alpine.yaml`
+Tools (all use homebrew, kept OS-agnostic with `provides:`):
+- [x] `homebrew.yaml` - added `provides: [homebrew]`, kept OS-agnostic (uses curl)
+- [x] `mise.yaml` - added `provides: [mise]`
+- [x] `tmux.yaml` - added `provides: [tmux]`
 
-AI tools:
-- [ ] `claude-code.yaml` → `claude-code-ubuntu.yaml`, etc.
-- [ ] `gemini-cli.yaml` → `gemini-cli-ubuntu.yaml`, etc.
-- [ ] `opencode.yaml` → `opencode-ubuntu.yaml`, etc.
+Languages (use mise, kept OS-agnostic with `provides:`):
+- [x] `nodejs.yaml` - added `provides: [nodejs]`
+
+AI tools (all use homebrew, kept OS-agnostic with `provides:`):
+- [x] `claude-code.yaml` - added `provides: [claude-code]`
+- [x] `gemini-cli.yaml` - added `provides: [gemini-cli]`
+- [x] `opencode.yaml` - added `provides: [opencode]`
 
 **Cleanup:**
-- [ ] Remove old `base.yaml` if it exists
-- [ ] Remove `apt_packages` and `apt_repos` from mod struct (if not done in Phase 1)
-- [ ] Update any documentation referencing old fields
+- [x] Remove old `base.yaml`
+- [x] Remove `apt_packages` and `apt_repos` from mod struct
+- [x] Remove old `zsh.yaml` and `fish.yaml` (replaced by OS variants)
 
-**Note:** Some mods might be OS-agnostic (e.g., `oh-my-zsh` if it just clones a git repo). These can remain without suffix and just `requires: [zsh]`.
+**Design Decision:** Only mods that require OS-specific package installation (shells needing apt/dnf/apk) need OS variants. Mods using homebrew or mise remain OS-agnostic since those tools work across all Linux distros.
 
 ### Phase 4: Command Updates
 
@@ -292,3 +292,4 @@ Consider:
 - **2024-12-13**: Initial design discussion. Decided on OS-as-mod approach, `provides` for abstract dependencies, dropping `apt_packages` in favor of `run_as_root`, flat file naming with OS suffix.
 - **2024-12-13**: Completed Phase 1. Added `dockerfile_from` and `provides` fields to mod struct. Implemented `EffectiveProvides()`, `BuildProvidesMap()`, `ValidateOSCategory()`, `ValidateRequires()`, `ValidateCrossOSDependencies()`, and `ValidateMods()`. Updated dependency resolution to use provides. All tests passing.
 - **2024-12-13**: Completed Phase 2. Updated generator to use OS mod's `dockerfile_from` for FROM line. Removed `collectAptPackages()` and `collectAptRepos()`. Created `mods/os/ubuntu.yaml` (partial Phase 3) to enable testing. Updated generator and integration tests. All tests passing.
+- **2024-12-13**: Completed Phase 3. Created `os/fedora.yaml` and `os/alpine.yaml`. Created OS-specific shell variants (`zsh-ubuntu`, `zsh-fedora`, `zsh-alpine`, `fish-ubuntu`, `fish-fedora`, `fish-alpine`). Kept homebrew-based mods OS-agnostic with `provides:` added. Removed `base.yaml` and `apt_packages`/`apt_repos` from mod struct. Updated all tests. All tests passing.

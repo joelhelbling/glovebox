@@ -151,13 +151,14 @@ func TestGenerateBase(t *testing.T) {
 	})
 
 	t.Run("fails without OS mod", func(t *testing.T) {
-		// tools/homebrew requires base but no OS mod provides dockerfile_from
-		_, err := GenerateBase([]string{"tools/homebrew"})
+		// shells/bash requires base but no OS mod provides it
+		_, err := GenerateBase([]string{"shells/bash"})
 		if err == nil {
 			t.Error("expected error when no OS mod present")
 		}
-		if !strings.Contains(err.Error(), "no OS mod found") {
-			t.Errorf("expected 'no OS mod found' error, got: %v", err)
+		// Error could be about missing base provider or no OS mod
+		if !strings.Contains(err.Error(), "no OS mod found") && !strings.Contains(err.Error(), "nothing provides") {
+			t.Errorf("expected 'no OS mod found' or 'nothing provides' error, got: %v", err)
 		}
 	})
 

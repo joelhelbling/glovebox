@@ -3,6 +3,8 @@ description: The Missing Package Manager for macOS (or Linux)
 category: tool
 requires:
   - base
+provides:
+  - homebrew
 
 run_as_user: |
   # Install Homebrew using the official installer

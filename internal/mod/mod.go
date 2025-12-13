@@ -22,8 +22,6 @@ type Mod struct {
 	DockerfileFrom string            `yaml:"dockerfile_from,omitempty"`
 	Provides       []string          `yaml:"provides,omitempty"`
 	Requires       []string          `yaml:"requires,omitempty"`
-	AptRepos       []string          `yaml:"apt_repos,omitempty"`
-	AptPackages    []string          `yaml:"apt_packages,omitempty"`
 	RunAsRoot      string            `yaml:"run_as_root,omitempty"`
 	RunAsUser      string            `yaml:"run_as_user,omitempty"`
 	Env            map[string]string `yaml:"env,omitempty"`

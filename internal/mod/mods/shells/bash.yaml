@@ -3,6 +3,8 @@ description: Bash shell (default, minimal configuration)
 category: shell
 requires:
   - base
+provides:
+  - bash
 
 env:
   SHELL: /bin/bash

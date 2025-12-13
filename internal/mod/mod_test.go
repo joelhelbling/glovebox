@@ -46,18 +46,18 @@ func TestLoad(t *testing.T) {
 		check   func(*testing.T, *Mod)
 	}{
 		{
-			name:    "load base mod",
-			id:      "base",
+			name:    "load OS mod",
+			id:      "os/ubuntu",
 			wantErr: false,
 			check: func(t *testing.T, m *Mod) {
-				if m.Name != "base" {
-					t.Errorf("expected name 'base', got %q", m.Name)
+				if m.Name != "ubuntu" {
+					t.Errorf("expected name 'ubuntu', got %q", m.Name)
 				}
-				if m.Category != "core" {
-					t.Errorf("expected category 'core', got %q", m.Category)
+				if m.Category != "os" {
+					t.Errorf("expected category 'os', got %q", m.Category)
 				}
-				if len(m.AptPackages) == 0 {
-					t.Error("expected apt packages in base mod")
+				if m.DockerfileFrom == "" {
+					t.Error("expected dockerfile_from in OS mod")
 				}
 			},
 		},
@@ -130,9 +130,9 @@ func TestLoad(t *testing.T) {
 
 func TestLoadRaw(t *testing.T) {
 	t.Run("load embedded mod", func(t *testing.T) {
-		data, source, err := LoadRaw("base")
+		data, source, err := LoadRaw("os/ubuntu")
 		if err != nil {
-			t.Fatalf("LoadRaw('base') error = %v", err)
+			t.Fatalf("LoadRaw('os/ubuntu') error = %v", err)
 		}
 		if source != "embedded" {
 			t.Errorf("expected source 'embedded', got %q", source)
@@ -141,8 +141,8 @@ func TestLoadRaw(t *testing.T) {
 			t.Error("expected non-empty data")
 		}
 		// Verify it contains expected content
-		if !contains(string(data), "name: base") {
-			t.Error("expected YAML to contain 'name: base'")
+		if !contains(string(data), "name: ubuntu") {
+			t.Error("expected YAML to contain 'name: ubuntu'")
 		}
 	})
 
@@ -174,12 +174,12 @@ func TestListAll(t *testing.T) {
 		t.Fatalf("ListAll() error = %v", err)
 	}
 
-	// Should have core category with base mod
-	if _, ok := result["core"]; !ok {
-		t.Error("expected 'core' category in result")
+	// Should have os category with ubuntu mod
+	if _, ok := result["os"]; !ok {
+		t.Error("expected 'os' category in result")
 	}
-	if !containsString(result["core"], "base") {
-		t.Error("expected 'base' in core category")
+	if !containsString(result["os"], "os/ubuntu") {
+		t.Error("expected 'os/ubuntu' in os category")
 	}
 
 	// Should have shells category
@@ -203,34 +203,34 @@ func TestListAll(t *testing.T) {
 
 func TestLoadMultiple(t *testing.T) {
 	t.Run("load single mod with dependencies", func(t *testing.T) {
-		// mise requires tools/homebrew which requires base
-		mods, err := LoadMultiple([]string{"tools/mise"})
+		// mise requires homebrew which requires base (provided by os/ubuntu)
+		mods, err := LoadMultiple([]string{"os/ubuntu", "tools/mise"})
 		if err != nil {
 			t.Fatalf("LoadMultiple() error = %v", err)
 		}
 
-		// Should have at least 3 mods: base, homebrew, mise
+		// Should have at least 3 mods: ubuntu, homebrew, mise
 		if len(mods) < 3 {
-			t.Errorf("expected at least 3 mods (base, homebrew, mise), got %d", len(mods))
+			t.Errorf("expected at least 3 mods (ubuntu, homebrew, mise), got %d", len(mods))
 		}
 
-		// Verify dependency order: base should come before homebrew, homebrew before mise
+		// Verify dependency order: ubuntu should come before homebrew, homebrew before mise
 		names := make([]string, len(mods))
 		for i, m := range mods {
 			names[i] = m.Name
 		}
 
-		baseIdx := indexOf(names, "base")
+		ubuntuIdx := indexOf(names, "ubuntu")
 		homebrewIdx := indexOf(names, "homebrew")
 		miseIdx := indexOf(names, "mise")
 
-		if baseIdx == -1 || homebrewIdx == -1 || miseIdx == -1 {
-			t.Errorf("expected base, homebrew, mise in results, got %v", names)
+		if ubuntuIdx == -1 || homebrewIdx == -1 || miseIdx == -1 {
+			t.Errorf("expected ubuntu, homebrew, mise in results, got %v", names)
 			return
 		}
 
-		if baseIdx > homebrewIdx {
-			t.Error("base should come before homebrew")
+		if ubuntuIdx > homebrewIdx {
+			t.Error("ubuntu should come before homebrew")
 		}
 		if homebrewIdx > miseIdx {
 			t.Error("homebrew should come before mise")
@@ -239,7 +239,7 @@ func TestLoadMultiple(t *testing.T) {
 
 	t.Run("load multiple mods with shared dependencies", func(t *testing.T) {
 		// Both neovim and mise require homebrew
-		mods, err := LoadMultiple([]string{"editors/neovim", "tools/mise"})
+		mods, err := LoadMultiple([]string{"os/ubuntu", "editors/neovim", "tools/mise"})
 		if err != nil {
 			t.Fatalf("LoadMultiple() error = %v", err)
 		}
@@ -254,9 +254,9 @@ func TestLoadMultiple(t *testing.T) {
 		if counts["homebrew"] != 1 {
 			t.Errorf("homebrew should appear exactly once, got %d", counts["homebrew"])
 		}
-		// Base should only appear once
-		if counts["base"] != 1 {
-			t.Errorf("base should appear exactly once, got %d", counts["base"])
+		// Ubuntu should only appear once
+		if counts["ubuntu"] != 1 {
+			t.Errorf("ubuntu should appear exactly once, got %d", counts["ubuntu"])
 		}
 	})
 
@@ -270,17 +270,17 @@ func TestLoadMultiple(t *testing.T) {
 
 func TestLoadMultipleExcluding(t *testing.T) {
 	t.Run("exclude base mods", func(t *testing.T) {
-		// Load mise but exclude base and homebrew (as if they're in base image)
-		baseModIDs := []string{"base", "tools/homebrew"}
+		// Load mise but exclude ubuntu and homebrew (as if they're in base image)
+		baseModIDs := []string{"os/ubuntu", "tools/homebrew"}
 		mods, err := LoadMultipleExcluding([]string{"tools/mise"}, baseModIDs)
 		if err != nil {
 			t.Fatalf("LoadMultipleExcluding() error = %v", err)
 		}
 
-		// Should only have mise, not base or homebrew
+		// Should only have mise, not ubuntu or homebrew
 		for _, m := range mods {
-			if m.Name == "base" {
-				t.Error("base should be excluded")
+			if m.Name == "ubuntu" {
+				t.Error("ubuntu should be excluded")
 			}
 			if m.Name == "homebrew" {
 				t.Error("homebrew should be excluded")
@@ -296,9 +296,9 @@ func TestLoadMultipleExcluding(t *testing.T) {
 		}
 	})
 
-	t.Run("empty base mods", func(t *testing.T) {
+	t.Run("empty base mods with OS mod", func(t *testing.T) {
 		// Should behave like LoadMultiple when no base mods
-		mods, err := LoadMultipleExcluding([]string{"tools/mise"}, nil)
+		mods, err := LoadMultipleExcluding([]string{"os/ubuntu", "tools/mise"}, nil)
 		if err != nil {
 			t.Fatalf("LoadMultipleExcluding() error = %v", err)
 		}
@@ -309,25 +309,25 @@ func TestLoadMultipleExcluding(t *testing.T) {
 			names[i] = m.Name
 		}
 
-		if !containsString(names, "base") {
-			t.Error("expected base to be included with empty exclusions")
+		if !containsString(names, "ubuntu") {
+			t.Error("expected ubuntu to be included with empty exclusions")
 		}
 	})
 }
 
 func TestAddModToResult(t *testing.T) {
-	t.Run("add top-level mod to core", func(t *testing.T) {
+	t.Run("add categorized os mod", func(t *testing.T) {
 		result := make(map[string][]string)
 		seen := make(map[string]bool)
 
-		addModToResult(result, seen, "base")
+		addModToResult(result, seen, "os/ubuntu")
 
-		if !containsString(result["core"], "base") {
-			t.Error("expected 'base' in 'core' category")
+		if !containsString(result["os"], "os/ubuntu") {
+			t.Error("expected 'os/ubuntu' in 'os' category")
 		}
 	})
 
-	t.Run("add categorized mod", func(t *testing.T) {
+	t.Run("add categorized shell mod", func(t *testing.T) {
 		result := make(map[string][]string)
 		seen := make(map[string]bool)
 
@@ -342,19 +342,19 @@ func TestAddModToResult(t *testing.T) {
 		result := make(map[string][]string)
 		seen := make(map[string]bool)
 
-		addModToResult(result, seen, "base")
-		addModToResult(result, seen, "base") // add again
+		addModToResult(result, seen, "os/ubuntu")
+		addModToResult(result, seen, "os/ubuntu") // add again
 
-		if len(result["core"]) != 1 {
-			t.Errorf("expected 1 entry in core, got %d", len(result["core"]))
+		if len(result["os"]) != 1 {
+			t.Errorf("expected 1 entry in os, got %d", len(result["os"]))
 		}
 	})
 }
 
 func TestModStruct(t *testing.T) {
-	m, err := Load("base")
+	m, err := Load("os/ubuntu")
 	if err != nil {
-		t.Fatalf("Load('base') error = %v", err)
+		t.Fatalf("Load('os/ubuntu') error = %v", err)
 	}
 
 	// Test that all fields are accessible
@@ -368,14 +368,14 @@ func TestModStruct(t *testing.T) {
 		t.Error("Category should not be empty")
 	}
 
-	// AptPackages should be populated for base
-	if len(m.AptPackages) == 0 {
-		t.Error("AptPackages should not be empty for base mod")
+	// OS mod should have dockerfile_from
+	if m.DockerfileFrom == "" {
+		t.Error("DockerfileFrom should not be empty for OS mod")
 	}
 
-	// Base mod should have run_as_root
+	// OS mod should have run_as_root
 	if m.RunAsRoot == "" {
-		t.Error("RunAsRoot should not be empty for base mod")
+		t.Error("RunAsRoot should not be empty for OS mod")
 	}
 }
 

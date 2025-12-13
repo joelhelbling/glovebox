@@ -3,6 +3,8 @@ description: Helix - a post-modern modal text editor
 category: editor
 requires:
   - tools/homebrew
+provides:
+  - helix
 
 run_as_user: |
   brew install helix

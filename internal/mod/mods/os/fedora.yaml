@@ -1,0 +1,33 @@
+name: fedora
+description: Fedora base image with core dependencies
+category: os
+dockerfile_from: fedora:41
+provides:
+  - base
+
+run_as_root: |
+  # Install core packages
+  dnf install -y \
+    curl \
+    wget \
+    git \
+    gcc \
+    gcc-c++ \
+    make \
+    unzip \
+    ca-certificates \
+    gnupg2 \
+    sudo \
+    jq \
+    libffi-devel \
+    libyaml-devel \
+    procps-ng \
+    findutils \
+    && dnf clean all
+
+  # Create the fedora user (doesn't exist by default)
+  useradd -m -s /bin/bash -u 1000 ubuntu
+  echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu
+  chmod 0440 /etc/sudoers.d/ubuntu
+  mkdir -p /home/ubuntu/.local/bin
+  chown -R ubuntu:ubuntu /home/ubuntu

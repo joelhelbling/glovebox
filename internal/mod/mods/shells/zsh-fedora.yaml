@@ -1,13 +1,13 @@
-name: zsh
-description: Z shell with sensible defaults
+name: zsh-fedora
+description: Z shell with sensible defaults (Fedora)
 category: shell
 requires:
-  - base
-
-apt_packages:
+  - fedora
+provides:
   - zsh
 
 run_as_root: |
+  dnf install -y zsh && dnf clean all
   usermod -s /usr/bin/zsh ubuntu
   mkdir -p /home/ubuntu/.config/zsh
   chown -R ubuntu:ubuntu /home/ubuntu/.config/zsh
