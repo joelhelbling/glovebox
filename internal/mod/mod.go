@@ -16,16 +16,26 @@ var modFS embed.FS
 
 // Mod represents a composable piece of Dockerfile configuration
 type Mod struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description"`
-	Category    string            `yaml:"category"`
-	Requires    []string          `yaml:"requires,omitempty"`
-	AptRepos    []string          `yaml:"apt_repos,omitempty"`
-	AptPackages []string          `yaml:"apt_packages,omitempty"`
-	RunAsRoot   string            `yaml:"run_as_root,omitempty"`
-	RunAsUser   string            `yaml:"run_as_user,omitempty"`
-	Env         map[string]string `yaml:"env,omitempty"`
-	UserShell   string            `yaml:"user_shell,omitempty"`
+	Name           string            `yaml:"name"`
+	Description    string            `yaml:"description"`
+	Category       string            `yaml:"category"`
+	DockerfileFrom string            `yaml:"dockerfile_from,omitempty"`
+	Provides       []string          `yaml:"provides,omitempty"`
+	Requires       []string          `yaml:"requires,omitempty"`
+	AptRepos       []string          `yaml:"apt_repos,omitempty"`
+	AptPackages    []string          `yaml:"apt_packages,omitempty"`
+	RunAsRoot      string            `yaml:"run_as_root,omitempty"`
+	RunAsUser      string            `yaml:"run_as_user,omitempty"`
+	Env            map[string]string `yaml:"env,omitempty"`
+	UserShell      string            `yaml:"user_shell,omitempty"`
+}
+
+// EffectiveProvides returns what this mod provides: explicit provides plus the mod's own name
+func (m *Mod) EffectiveProvides() []string {
+	result := make([]string, 0, len(m.Provides)+1)
+	result = append(result, m.Name)
+	result = append(result, m.Provides...)
+	return result
 }
 
 // modSearchPaths returns the directories to search for mods, in priority order:
@@ -222,7 +232,7 @@ func LoadMultiple(ids []string) ([]*Mod, error) {
 // the provided base mod IDs. This is used for project builds where the base image
 // already contains certain mods.
 func LoadMultipleExcluding(ids []string, baseModIDs []string) ([]*Mod, error) {
-	// Build a set of mod IDs that are already in the base (including their dependencies)
+	// Build a set of what's already satisfied by the base (IDs and provides)
 	baseSatisfied := make(map[string]bool)
 	if len(baseModIDs) > 0 {
 		// Resolve all base mod IDs including their dependencies
@@ -230,8 +240,19 @@ func LoadMultipleExcluding(ids []string, baseModIDs []string) ([]*Mod, error) {
 		if err != nil {
 			return nil, fmt.Errorf("resolving base mods: %w", err)
 		}
+		// Mark all base mod IDs as satisfied
 		for _, id := range allBaseIDs {
 			baseSatisfied[id] = true
+		}
+		// Also load base mods to get their provides
+		for _, id := range allBaseIDs {
+			m, err := Load(id)
+			if err != nil {
+				continue // already validated in resolveAllDependencies
+			}
+			for _, p := range m.EffectiveProvides() {
+				baseSatisfied[p] = true
+			}
 		}
 	}
 
@@ -240,9 +261,34 @@ func LoadMultipleExcluding(ids []string, baseModIDs []string) ([]*Mod, error) {
 
 // loadMultipleInternal is the core implementation that loads mods with dependency
 // resolution, optionally skipping mods that are already satisfied.
+// It uses the provides system: a mod's requirements can be satisfied by any loaded
+// mod that provides the required name (via explicit provides or implicit name).
 func loadMultipleInternal(ids []string, satisfied map[string]bool) ([]*Mod, error) {
-	loaded := make(map[string]*Mod)
+	loaded := make(map[string]*Mod)   // mod ID -> mod
+	provided := make(map[string]bool) // what's provided (names + explicit provides)
 	var order []string
+
+	// Helper to check if a requirement is satisfied
+	isSatisfied := func(req string) bool {
+		// Check if provided by a loaded mod
+		if provided[req] {
+			return true
+		}
+		// Check if satisfied by base (for excluding base mods)
+		if satisfied != nil && satisfied[req] {
+			return true
+		}
+		return false
+	}
+
+	// Helper to mark a mod as loaded and track what it provides
+	markLoaded := func(id string, m *Mod) {
+		loaded[id] = m
+		order = append(order, id)
+		for _, p := range m.EffectiveProvides() {
+			provided[p] = true
+		}
+	}
 
 	var loadWithDeps func(id string) error
 	loadWithDeps = func(id string) error {
@@ -261,15 +307,21 @@ func loadMultipleInternal(ids []string, satisfied map[string]bool) ([]*Mod, erro
 			return err
 		}
 
-		// Load dependencies first
+		// Load dependencies first (try to load by ID)
 		for _, dep := range m.Requires {
+			// If already satisfied by something that provides it, skip
+			if isSatisfied(dep) {
+				continue
+			}
+			// Try to load the dependency by ID
 			if err := loadWithDeps(dep); err != nil {
-				return fmt.Errorf("dependency %s of %s: %w", dep, id, err)
+				// If the dep couldn't be loaded by ID, it might be provided by another mod
+				// that will be loaded later. We'll validate this after all mods are loaded.
+				continue
 			}
 		}
 
-		loaded[id] = m
-		order = append(order, id)
+		markLoaded(id, m)
 		return nil
 	}
 
@@ -290,8 +342,10 @@ func loadMultipleInternal(ids []string, satisfied map[string]bool) ([]*Mod, erro
 
 // resolveAllDependencies returns a list of all mod IDs (including the given IDs
 // and all their transitive dependencies) in dependency order.
+// It also returns a map of all provided names for use in dependency checking.
 func resolveAllDependencies(ids []string) ([]string, error) {
 	resolved := make(map[string]bool)
+	provided := make(map[string]bool) // track what's provided
 	var order []string
 
 	var resolve func(id string) error
@@ -307,13 +361,23 @@ func resolveAllDependencies(ids []string) ([]string, error) {
 
 		// Resolve dependencies first
 		for _, dep := range m.Requires {
+			// Skip if already provided by a resolved mod
+			if provided[dep] {
+				continue
+			}
+			// Try to resolve by ID
 			if err := resolve(dep); err != nil {
-				return fmt.Errorf("dependency %s of %s: %w", dep, id, err)
+				// Dependency might be provided by another mod loaded later
+				continue
 			}
 		}
 
 		resolved[id] = true
 		order = append(order, id)
+		// Track what this mod provides
+		for _, p := range m.EffectiveProvides() {
+			provided[p] = true
+		}
 		return nil
 	}
 
@@ -324,4 +388,115 @@ func resolveAllDependencies(ids []string) ([]string, error) {
 	}
 
 	return order, nil
+}
+
+// BuildProvidesMap creates a map from provided names to the mods that provide them.
+// Each mod provides its own name plus any explicit provides values.
+func BuildProvidesMap(mods []*Mod) map[string][]*Mod {
+	result := make(map[string][]*Mod)
+	for _, m := range mods {
+		for _, p := range m.EffectiveProvides() {
+			result[p] = append(result[p], m)
+		}
+	}
+	return result
+}
+
+// ValidateOSCategory checks that at most one mod from the "os" category is present.
+// Returns the OS mod if found, or nil if none. Returns an error if multiple OS mods.
+func ValidateOSCategory(mods []*Mod) (*Mod, error) {
+	var osMods []*Mod
+	for _, m := range mods {
+		if m.Category == "os" {
+			osMods = append(osMods, m)
+		}
+	}
+
+	if len(osMods) > 1 {
+		names := make([]string, len(osMods))
+		for i, m := range osMods {
+			names[i] = m.Name
+		}
+		return nil, fmt.Errorf("multiple OS mods specified: %v (only one allowed)", names)
+	}
+
+	if len(osMods) == 1 {
+		return osMods[0], nil
+	}
+	return nil, nil
+}
+
+// ValidateRequires checks that all mod requirements are satisfied by the provides map.
+// Returns an error describing the first unsatisfied requirement found.
+func ValidateRequires(mods []*Mod, providesMap map[string][]*Mod) error {
+	for _, m := range mods {
+		for _, req := range m.Requires {
+			if _, ok := providesMap[req]; !ok {
+				return fmt.Errorf("mod %q requires %q, but nothing provides it", m.Name, req)
+			}
+		}
+	}
+	return nil
+}
+
+// KnownOSNames returns the list of known OS mod names for validation
+var KnownOSNames = []string{"ubuntu", "fedora", "alpine"}
+
+// isKnownOS checks if a name is a known OS
+func isKnownOS(name string) bool {
+	for _, os := range KnownOSNames {
+		if name == os {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateCrossOSDependencies checks that mods don't require a different OS than the selected one.
+// For example, if ubuntu is selected, vim-fedora (which requires fedora) should error.
+func ValidateCrossOSDependencies(mods []*Mod, osMod *Mod) error {
+	if osMod == nil {
+		return nil
+	}
+
+	selectedOS := osMod.Name
+
+	for _, m := range mods {
+		if m.Category == "os" {
+			continue // skip the OS mod itself
+		}
+
+		for _, req := range m.Requires {
+			// Check if the requirement is for a different known OS
+			if isKnownOS(req) && req != selectedOS {
+				return fmt.Errorf("mod %q requires %q, but %q is the selected OS", m.Name, req, selectedOS)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateMods performs all validation checks on a set of loaded mods.
+// It returns the OS mod (if any) and any validation error encountered.
+func ValidateMods(mods []*Mod) (*Mod, error) {
+	// Check OS category
+	osMod, err := ValidateOSCategory(mods)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build provides map
+	providesMap := BuildProvidesMap(mods)
+
+	// Check all requires are satisfied
+	if err := ValidateRequires(mods, providesMap); err != nil {
+		return nil, err
+	}
+
+	// Check for cross-OS dependency issues
+	if err := ValidateCrossOSDependencies(mods, osMod); err != nil {
+		return nil, err
+	}
+
+	return osMod, nil
 }

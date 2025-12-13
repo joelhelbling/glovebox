@@ -411,3 +411,289 @@ func indexOf(slice []string, s string) int {
 	}
 	return -1
 }
+
+// Tests for new provides and validation logic
+
+func TestEffectiveProvides(t *testing.T) {
+	t.Run("mod with no explicit provides", func(t *testing.T) {
+		m := &Mod{Name: "vim"}
+		provides := m.EffectiveProvides()
+		if len(provides) != 1 {
+			t.Errorf("expected 1 provide, got %d", len(provides))
+		}
+		if provides[0] != "vim" {
+			t.Errorf("expected 'vim', got %q", provides[0])
+		}
+	})
+
+	t.Run("mod with explicit provides", func(t *testing.T) {
+		m := &Mod{Name: "zsh-ubuntu", Provides: []string{"zsh"}}
+		provides := m.EffectiveProvides()
+		if len(provides) != 2 {
+			t.Errorf("expected 2 provides, got %d", len(provides))
+		}
+		// Should contain both the name and explicit provides
+		if !containsString(provides, "zsh-ubuntu") {
+			t.Error("expected 'zsh-ubuntu' in provides")
+		}
+		if !containsString(provides, "zsh") {
+			t.Error("expected 'zsh' in provides")
+		}
+	})
+
+	t.Run("mod with multiple explicit provides", func(t *testing.T) {
+		m := &Mod{Name: "ubuntu", Provides: []string{"base", "linux"}}
+		provides := m.EffectiveProvides()
+		if len(provides) != 3 {
+			t.Errorf("expected 3 provides, got %d", len(provides))
+		}
+		if !containsString(provides, "ubuntu") {
+			t.Error("expected 'ubuntu' in provides")
+		}
+		if !containsString(provides, "base") {
+			t.Error("expected 'base' in provides")
+		}
+		if !containsString(provides, "linux") {
+			t.Error("expected 'linux' in provides")
+		}
+	})
+}
+
+func TestBuildProvidesMap(t *testing.T) {
+	mods := []*Mod{
+		{Name: "ubuntu", Category: "os", Provides: []string{"base"}},
+		{Name: "zsh-ubuntu", Category: "shell", Provides: []string{"zsh"}},
+		{Name: "vim-ubuntu", Category: "editor"},
+	}
+
+	providesMap := BuildProvidesMap(mods)
+
+	// Each mod provides its own name
+	if _, ok := providesMap["ubuntu"]; !ok {
+		t.Error("expected 'ubuntu' in provides map")
+	}
+	if _, ok := providesMap["zsh-ubuntu"]; !ok {
+		t.Error("expected 'zsh-ubuntu' in provides map")
+	}
+	if _, ok := providesMap["vim-ubuntu"]; !ok {
+		t.Error("expected 'vim-ubuntu' in provides map")
+	}
+
+	// Explicit provides
+	if _, ok := providesMap["base"]; !ok {
+		t.Error("expected 'base' in provides map")
+	}
+	if _, ok := providesMap["zsh"]; !ok {
+		t.Error("expected 'zsh' in provides map")
+	}
+
+	// Check that the right mods provide each name
+	if providesMap["base"][0].Name != "ubuntu" {
+		t.Error("expected 'ubuntu' to provide 'base'")
+	}
+	if providesMap["zsh"][0].Name != "zsh-ubuntu" {
+		t.Error("expected 'zsh-ubuntu' to provide 'zsh'")
+	}
+}
+
+func TestValidateOSCategory(t *testing.T) {
+	t.Run("no OS mod", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "vim", Category: "editor"},
+			{Name: "zsh", Category: "shell"},
+		}
+		osMod, err := ValidateOSCategory(mods)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if osMod != nil {
+			t.Error("expected nil OS mod")
+		}
+	})
+
+	t.Run("single OS mod", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "vim", Category: "editor"},
+		}
+		osMod, err := ValidateOSCategory(mods)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if osMod == nil {
+			t.Error("expected OS mod")
+		}
+		if osMod.Name != "ubuntu" {
+			t.Errorf("expected 'ubuntu', got %q", osMod.Name)
+		}
+	})
+
+	t.Run("multiple OS mods", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "fedora", Category: "os"},
+		}
+		_, err := ValidateOSCategory(mods)
+		if err == nil {
+			t.Error("expected error for multiple OS mods")
+		}
+		if !strings.Contains(err.Error(), "multiple OS mods") {
+			t.Errorf("expected error about multiple OS mods, got: %v", err)
+		}
+	})
+}
+
+func TestValidateRequires(t *testing.T) {
+	t.Run("all requirements satisfied", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "zsh-ubuntu", Provides: []string{"zsh"}, Requires: []string{"ubuntu"}},
+			{Name: "oh-my-zsh", Requires: []string{"zsh"}},
+		}
+		providesMap := BuildProvidesMap(mods)
+		err := ValidateRequires(mods, providesMap)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("requirement not satisfied", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "oh-my-zsh", Requires: []string{"zsh"}}, // zsh not provided
+		}
+		providesMap := BuildProvidesMap(mods)
+		err := ValidateRequires(mods, providesMap)
+		if err == nil {
+			t.Error("expected error for unsatisfied requirement")
+		}
+		if !strings.Contains(err.Error(), "oh-my-zsh") || !strings.Contains(err.Error(), "zsh") {
+			t.Errorf("expected error to mention mod and requirement, got: %v", err)
+		}
+	})
+
+	t.Run("requirement satisfied by provides", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "zsh-ubuntu", Provides: []string{"zsh"}},
+			{Name: "oh-my-zsh", Requires: []string{"zsh"}},
+		}
+		providesMap := BuildProvidesMap(mods)
+		err := ValidateRequires(mods, providesMap)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestValidateCrossOSDependencies(t *testing.T) {
+	t.Run("no cross-OS issues", func(t *testing.T) {
+		osMod := &Mod{Name: "ubuntu", Category: "os"}
+		mods := []*Mod{
+			osMod,
+			{Name: "vim-ubuntu", Requires: []string{"ubuntu"}},
+		}
+		err := ValidateCrossOSDependencies(mods, osMod)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("cross-OS dependency error", func(t *testing.T) {
+		osMod := &Mod{Name: "ubuntu", Category: "os"}
+		mods := []*Mod{
+			osMod,
+			{Name: "vim-fedora", Requires: []string{"fedora"}},
+		}
+		err := ValidateCrossOSDependencies(mods, osMod)
+		if err == nil {
+			t.Error("expected error for cross-OS dependency")
+		}
+		if !strings.Contains(err.Error(), "vim-fedora") || !strings.Contains(err.Error(), "fedora") {
+			t.Errorf("expected error to mention mod and OS, got: %v", err)
+		}
+	})
+
+	t.Run("no OS mod selected", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "vim", Requires: []string{"fedora"}},
+		}
+		// With no OS mod, we don't validate cross-OS (user might be doing something custom)
+		err := ValidateCrossOSDependencies(mods, nil)
+		if err != nil {
+			t.Errorf("unexpected error when no OS selected: %v", err)
+		}
+	})
+}
+
+func TestValidateMods(t *testing.T) {
+	t.Run("valid configuration", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os", Provides: []string{"base"}},
+			{Name: "zsh-ubuntu", Provides: []string{"zsh"}, Requires: []string{"ubuntu"}},
+			{Name: "oh-my-zsh", Requires: []string{"zsh"}},
+		}
+		osMod, err := ValidateMods(mods)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if osMod == nil || osMod.Name != "ubuntu" {
+			t.Error("expected ubuntu OS mod")
+		}
+	})
+
+	t.Run("multiple OS mods", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "fedora", Category: "os"},
+		}
+		_, err := ValidateMods(mods)
+		if err == nil {
+			t.Error("expected error for multiple OS mods")
+		}
+	})
+
+	t.Run("unsatisfied requirement", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "oh-my-zsh", Requires: []string{"zsh"}},
+		}
+		_, err := ValidateMods(mods)
+		if err == nil {
+			t.Error("expected error for unsatisfied requirement")
+		}
+	})
+
+	t.Run("cross-OS dependency", func(t *testing.T) {
+		mods := []*Mod{
+			{Name: "ubuntu", Category: "os"},
+			{Name: "vim-fedora", Requires: []string{"fedora"}},
+		}
+		_, err := ValidateMods(mods)
+		if err == nil {
+			t.Error("expected error for cross-OS dependency")
+		}
+	})
+}
+
+func TestDockerfileFrom(t *testing.T) {
+	t.Run("OS mod with dockerfile_from", func(t *testing.T) {
+		m := &Mod{
+			Name:           "ubuntu",
+			Category:       "os",
+			DockerfileFrom: "ubuntu:24.04",
+		}
+		if m.DockerfileFrom != "ubuntu:24.04" {
+			t.Errorf("expected 'ubuntu:24.04', got %q", m.DockerfileFrom)
+		}
+	})
+
+	t.Run("non-OS mod without dockerfile_from", func(t *testing.T) {
+		m := &Mod{
+			Name:     "vim",
+			Category: "editor",
+		}
+		if m.DockerfileFrom != "" {
+			t.Errorf("expected empty dockerfile_from, got %q", m.DockerfileFrom)
+		}
+	})
+}
