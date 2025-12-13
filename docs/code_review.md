@@ -16,10 +16,11 @@ Glovebox is a well-structured Go CLI for creating sandboxed Docker development e
 
 ## Critical Issues
 
-### 1. No Test Coverage
+### 1. No Test Coverage ✅ DONE
 
 **Location:** Entire codebase
 **Severity:** High
+**Status:** Resolved - Added 139 test cases across 5 packages
 
 The codebase has zero test files. This is the most significant issue for AI-maintained code.
 
@@ -39,12 +40,14 @@ The codebase has zero test files. This is the most significant issue for AI-main
 
 ---
 
-### 2. Duplicated Container/Image Helper Functions
+### 2. Duplicated Container/Image Helper Functions ✅ DONE
 
 **Locations:**
 - `cmd/run.go:114-127` - `checkContainerExists`, `checkContainerRunning`
 - `cmd/status.go:152-164` - `containerExists`, `containerRunning`
 - `cmd/clean.go:254-257` - `containerExistsForClean`
+
+**Status:** Resolved - Extracted to `internal/docker/` package
 
 **Issue:** Three separate implementations of essentially the same Docker inspection logic.
 
@@ -80,12 +83,14 @@ func GetImageDigest(name string) (string, error)
 
 ---
 
-### 3. Duplicated Container Name Generation
+### 3. Duplicated Container Name Generation ✅ DONE
 
 **Locations:**
 - `cmd/run.go:74-77`
 - `cmd/clean.go:88-92`
 - `cmd/status.go:126-129`
+
+**Status:** Resolved - Added `ContainerName()` and `ImageName()` to `internal/docker/` package
 
 **Issue:** Container name calculation logic duplicated in three places.
 
@@ -112,9 +117,10 @@ func ContainerName(dir string) string {
 
 ## Moderate Issues
 
-### 4. Inconsistent Error Handling Patterns
+### 4. Inconsistent Error Handling Patterns ✅ DONE
 
 **Location:** Various command files
+**Status:** Resolved - All errors now wrapped with context using `%w`
 
 **Issue:** Mix of error handling styles:
 
@@ -138,9 +144,10 @@ if m, err := loadFromFile(fullPath); err == nil {
 
 ---
 
-### 5. Deprecated Function Still Present
+### 5. Deprecated Function Still Present ✅ DONE
 
 **Location:** `internal/generator/generator.go:277-279`
+**Status:** Resolved - Removed deprecated `Generate` function (unused)
 
 ```go
 // Generate creates a Dockerfile from a list of mod IDs (legacy, for base images)
@@ -202,9 +209,10 @@ envVars := []string{
 
 ---
 
-### 8. Unused Function
+### 8. Unused Function ✅ DONE
 
 **Location:** `cmd/status.go:182-190`
+**Status:** Resolved - Removed during Docker helper extraction
 
 ```go
 func volumeExists(name string) bool {
@@ -222,9 +230,10 @@ func volumeExists(name string) bool {
 
 ## Minor Issues
 
-### 9. Deprecated `strings.Title` Usage
+### 9. Deprecated `strings.Title` Usage ✅ DONE
 
 **Location:** `cmd/init.go:133`
+**Status:** Resolved - Replaced with `golang.org/x/text/cases`
 
 ```go
 bold.Printf("%s:\n", strings.Title(category))
@@ -243,9 +252,10 @@ bold.Printf("%s:\n", caser.String(category))
 
 ---
 
-### 10. Inconsistent Color Variable Patterns
+### 10. Inconsistent Color Variable Patterns ✅ DONE
 
 **Locations:** Various command files
+**Status:** Resolved - Created `cmd/colors.go` with package-level color definitions
 
 **Issue:** Color objects created at different scopes:
 
@@ -274,9 +284,10 @@ var (
 
 ---
 
-### 11. go.mod Uses `// indirect` for Direct Dependencies
+### 11. go.mod Uses `// indirect` for Direct Dependencies ✅ DONE
 
 **Location:** `go.mod`
+**Status:** Resolved - `go mod tidy` properly separates direct and indirect dependencies
 
 ```go
 require (
@@ -292,9 +303,10 @@ require (
 
 ---
 
-### 12. Potential Path Traversal in Mod Loading
+### 12. Potential Path Traversal in Mod Loading ✅ DONE
 
 **Location:** `internal/mod/mod.go:72-96`
+**Status:** Resolved - Added `validateModID()` function that rejects `..` sequences and absolute paths
 
 ```go
 func Load(id string) (*Mod, error) {
@@ -337,9 +349,10 @@ dockerfileDir := filepath.Dir(dockerfilePath)
 
 ---
 
-### 14. Generator Has Unused Helper
+### 14. Generator Has Unused Helper ✅ DONE
 
 **Location:** `internal/generator/generator.go:323-325`
+**Status:** Resolved - Removed wrapper, now uses `sort.Strings()` directly
 
 ```go
 func sortStrings(s []string) {
@@ -364,8 +377,8 @@ func sortStrings(s []string) {
 
 ### Suggestions for AI Maintainability
 
-1. **Add `internal/docker/` package** - Centralize all Docker interactions
-2. **Add `internal/naming/` package** - Container/image name generation
+1. **Add `internal/docker/` package** - Centralize all Docker interactions ✅ Done
+2. **Add `internal/naming/` package** - Container/image name generation ✅ Done (merged into `internal/docker/`)
 3. **Consider interfaces** - For Docker operations, enables mocking in tests
 4. **Add structured logging** - Would help debug AI-generated changes
 
@@ -375,18 +388,18 @@ func sortStrings(s []string) {
 
 For an AI agent to address these issues incrementally:
 
-| Priority | Issue | Effort | Impact |
-|----------|-------|--------|--------|
-| 1 | Add test infrastructure | Medium | High |
-| 2 | Extract Docker helpers to `internal/docker/` | Low | High |
-| 3 | Consolidate container name generation | Low | Medium |
-| 4 | Fix `go.mod` indirect markers | Trivial | Low |
-| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low |
-| 6 | Add path traversal validation | Low | Medium |
-| 7 | Fix deprecated `strings.Title` | Low | Low |
-| 8 | Standardize error handling | Medium | Medium |
-| 9 | Make env passthrough configurable | Medium | Low |
-| 10 | Centralize color definitions | Low | Low |
+| Priority | Issue | Effort | Impact | Status |
+|----------|-------|--------|--------|--------|
+| 1 | Add test infrastructure | Medium | High | ✅ Done |
+| 2 | Extract Docker helpers to `internal/docker/` | Low | High | ✅ Done |
+| 3 | Consolidate container name generation | Low | Medium | ✅ Done |
+| 4 | Fix `go.mod` indirect markers | Trivial | Low | ✅ Done |
+| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | ✅ Done |
+| 6 | Add path traversal validation | Low | Medium | ✅ Done |
+| 7 | Fix deprecated `strings.Title` | Low | Low | ✅ Done |
+| 8 | Standardize error handling | Medium | Medium | ✅ Done |
+| 9 | Make env passthrough configurable | Medium | Low | |
+| 10 | Centralize color definitions | Low | Low | ✅ Done |
 
 ---
 

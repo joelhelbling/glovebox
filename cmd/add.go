@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -66,8 +65,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Added '%s' to profile\n", modID)
+	colorGreen.Printf("✓ Added '%s' to profile\n", modID)
 	fmt.Println("\nRun 'glovebox build' to regenerate your Dockerfile.")
 
 	return nil

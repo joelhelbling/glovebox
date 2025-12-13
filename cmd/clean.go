@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"bufio"
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/spf13/cobra"
 )
 
@@ -79,29 +78,21 @@ func runClean(cmd *cobra.Command, args []string) error {
 		targetDir = args[0]
 	}
 
-	absPath, err := filepath.Abs(targetDir)
-	if err != nil {
-		return fmt.Errorf("resolving path: %w", err)
-	}
-
 	// Calculate image and container names
-	hash := sha256.Sum256([]byte(absPath))
-	shortHash := fmt.Sprintf("%x", hash)[:7]
-	dirName := filepath.Base(absPath)
-	imageName := fmt.Sprintf("glovebox:%s-%s", dirName, shortHash)
-	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
+	imageName := docker.ImageName(targetDir)
+	containerName := docker.ContainerName(targetDir)
 
 	// Check if there's anything to clean
-	imageFound := imageExists(imageName)
-	containerFound := containerExistsForClean(containerName)
+	imageFound := docker.ImageExists(imageName)
+	containerFound := docker.ContainerExists(containerName)
 
 	if !containerFound && (!cleanImage || !imageFound) {
-		yellow.Printf("No glovebox container found for %s\n", collapsePath(absPath))
+		yellow.Printf("No glovebox container found for %s\n", collapsePath(targetDir))
 		return nil
 	}
 
 	// Clean project resources
-	fmt.Printf("Cleaning glovebox resources for %s\n", collapsePath(absPath))
+	fmt.Printf("Cleaning glovebox resources for %s\n", collapsePath(targetDir))
 
 	// Remove container first (must be done before image)
 	if containerFound {
@@ -249,11 +240,6 @@ func findGloveboxContainers() ([]string, error) {
 		}
 	}
 	return containers, nil
-}
-
-func containerExistsForClean(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", name)
-	return cmd.Run() == nil
 }
 
 func removeContainer(name string, green *color.Color) error {

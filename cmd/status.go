@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/digest"
+	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -32,28 +31,23 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting current directory: %w", err)
 	}
 
-	bold := color.New(color.Bold)
-	green := color.New(color.FgGreen)
-	yellow := color.New(color.FgYellow)
-	dim := color.New(color.Faint)
-
 	// Check global profile
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
-		return err
+		return fmt.Errorf("checking global profile: %w", err)
 	}
 
-	bold.Println("Base Image:")
+	colorBold.Println("Base Image:")
 	if globalProfile == nil {
-		yellow.Println("  Profile: Not configured")
+		colorYellow.Println("  Profile: Not configured")
 		fmt.Println("  Run 'glovebox init --global' to create.")
 	} else {
 		// Check if image exists
 		fmt.Print("  Image: glovebox:base")
-		if imageExists("glovebox:base") {
-			green.Println(" ✓")
+		if docker.ImageExists("glovebox:base") {
+			colorGreen.Println(" ✓")
 		} else {
-			yellow.Println(" (not built)")
+			colorYellow.Println(" (not built)")
 			fmt.Println("  Run 'glovebox build --base' to build.")
 		}
 
@@ -61,12 +55,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Profile: %s\n", collapsePath(globalPath))
 		fmt.Printf("  Mods: %d\n", len(globalProfile.Mods))
 		for _, s := range globalProfile.Mods {
-			dim.Printf("    - %s\n", s)
+			colorDim.Printf("    - %s\n", s)
 		}
 
 		// Check base Dockerfile
 		dockerfilePath := globalProfile.DockerfilePath()
-		showDockerfileStatus(globalProfile, dockerfilePath, generator.GenerateBase, green, yellow, dim)
+		showDockerfileStatus(globalProfile, dockerfilePath, generator.GenerateBase)
 	}
 
 	fmt.Println()
@@ -74,28 +68,28 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// Check project profile
 	projectProfile, err := profile.LoadProject(cwd)
 	if err != nil {
-		return err
+		return fmt.Errorf("checking project profile: %w", err)
 	}
 
-	bold.Println("Project Image:")
+	colorBold.Println("Project Image:")
 	if projectProfile == nil {
-		dim.Println("  Profile: None (will use glovebox:base)")
+		colorDim.Println("  Profile: None (will use glovebox:base)")
 		fmt.Println("  Run 'glovebox init' to create a project-specific profile.")
 	} else {
 		// Check if image exists
 		imageName := projectProfile.ImageName()
 		fmt.Printf("  Image: %s", imageName)
-		if imageExists(imageName) {
-			green.Println(" ✓")
+		if docker.ImageExists(imageName) {
+			colorGreen.Println(" ✓")
 		} else {
-			yellow.Println(" (not built)")
+			colorYellow.Println(" (not built)")
 			fmt.Println("  Run 'glovebox build' to build.")
 		}
 
 		fmt.Printf("  Profile: %s\n", collapsePath(projectProfile.Path))
 		fmt.Printf("  Mods: %d\n", len(projectProfile.Mods))
 		for _, s := range projectProfile.Mods {
-			dim.Printf("    - %s\n", s)
+			colorDim.Printf("    - %s\n", s)
 		}
 
 		// Check project Dockerfile - need base mods for proper generation
@@ -104,63 +98,42 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		if globalProfile != nil {
 			baseMods = globalProfile.Mods
 		}
-		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseMods, green, yellow, dim)
+		showProjectDockerfileStatus(projectProfile, dockerfilePath, baseMods)
 	}
 
 	// Show container section
 	fmt.Println()
-	bold.Println("Container:")
-	showContainerStatus(cwd, green, yellow, dim)
+	colorBold.Println("Container:")
+	showContainerStatus(cwd)
 
 	return nil
 }
 
-func showContainerStatus(cwd string, green, yellow, dim *color.Color) {
-	// Calculate container name (same logic as run.go)
-	absPath, err := filepath.Abs(cwd)
-	if err != nil {
-		yellow.Printf("  Error: %v\n", err)
-		return
-	}
+func showContainerStatus(cwd string) {
+	// Calculate container name
+	containerName := docker.ContainerName(cwd)
 
-	hash := sha256.Sum256([]byte(absPath))
-	shortHash := fmt.Sprintf("%x", hash)[:7]
+	// Workspace mount display
+	absPath, _ := os.Getwd()
 	dirName := filepath.Base(absPath)
-	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
-
-	// Workspace mount
 	fmt.Printf("  Workspace: %s → /%s\n", collapsePath(absPath), dirName)
 
 	// Container status
 	fmt.Printf("  Container: %s\n", containerName)
-	if containerExists(containerName) {
-		if containerRunning(containerName) {
-			green.Println("    Status: Running ✓")
+	if docker.ContainerExists(containerName) {
+		if docker.ContainerRunning(containerName) {
+			colorGreen.Println("    Status: Running ✓")
 		} else {
-			green.Println("    Status: Stopped (will resume on next run) ✓")
+			colorGreen.Println("    Status: Stopped (will resume on next run) ✓")
 			// Show if there are uncommitted changes
 			changes, err := getContainerChanges(containerName)
 			if err == nil && len(changes) > 0 {
-				yellow.Printf("    Uncommitted changes: %d\n", len(changes))
+				colorYellow.Printf("    Uncommitted changes: %d\n", len(changes))
 			}
 		}
 	} else {
-		dim.Println("    Status: Will be created on first run")
+		colorDim.Println("    Status: Will be created on first run")
 	}
-}
-
-func containerExists(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", name)
-	return cmd.Run() == nil
-}
-
-func containerRunning(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(output)) == "true"
 }
 
 func getContainerChanges(name string) ([]string, error) {
@@ -179,43 +152,33 @@ func getContainerChanges(name string) ([]string, error) {
 	return changes, nil
 }
 
-func volumeExists(name string) bool {
-	cmd := exec.Command("docker", "volume", "inspect", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-	// Check that output contains the volume name (not just an error)
-	return strings.Contains(string(output), name)
-}
-
-func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFunc func([]string) (string, error), green, yellow, dim *color.Color) {
+func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFunc func([]string) (string, error)) {
 	fmt.Printf("  Dockerfile: %s\n", collapsePath(dockerfilePath))
 
 	// Check if Dockerfile exists
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		yellow.Println("    Status: Not generated")
+		colorYellow.Println("    Status: Not generated")
 		return
 	}
 
 	// Check if we have build info
 	if p.Build.DockerfileDigest == "" {
-		yellow.Println("    Status: Exists but not tracked")
+		colorYellow.Println("    Status: Exists but not tracked")
 		return
 	}
 
 	// Compare digests
 	currentDigest, err := digest.CalculateFile(dockerfilePath)
 	if err != nil {
-		yellow.Printf("    Status: Error reading (%v)\n", err)
+		colorYellow.Printf("    Status: Error reading (%v)\n", err)
 		return
 	}
 
 	if currentDigest == p.Build.DockerfileDigest {
-		green.Println("    Status: Up to date ✓")
-		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
+		colorGreen.Println("    Status: Up to date ✓")
+		colorDim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
 	} else {
-		yellow.Println("    Status: Modified since generation ⚠")
+		colorYellow.Println("    Status: Modified since generation ⚠")
 	}
 
 	// Check if profile would generate different content
@@ -226,37 +189,37 @@ func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFun
 	expectedDigest := digest.Calculate(expectedContent)
 
 	if expectedDigest != p.Build.DockerfileDigest {
-		yellow.Println("    Note: Profile has changed since last build")
+		colorYellow.Println("    Note: Profile has changed since last build")
 	}
 }
 
-func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseMods []string, green, yellow, dim *color.Color) {
+func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, baseMods []string) {
 	fmt.Printf("  Dockerfile: %s\n", collapsePath(dockerfilePath))
 
 	// Check if Dockerfile exists
 	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-		yellow.Println("    Status: Not generated")
+		colorYellow.Println("    Status: Not generated")
 		return
 	}
 
 	// Check if we have build info
 	if p.Build.DockerfileDigest == "" {
-		yellow.Println("    Status: Exists but not tracked")
+		colorYellow.Println("    Status: Exists but not tracked")
 		return
 	}
 
 	// Compare digests
 	currentDigest, err := digest.CalculateFile(dockerfilePath)
 	if err != nil {
-		yellow.Printf("    Status: Error reading (%v)\n", err)
+		colorYellow.Printf("    Status: Error reading (%v)\n", err)
 		return
 	}
 
 	if currentDigest == p.Build.DockerfileDigest {
-		green.Println("    Status: Up to date ✓")
-		dim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
+		colorGreen.Println("    Status: Up to date ✓")
+		colorDim.Printf("    Last built: %s\n", p.Build.LastBuiltAt.Local().Format("2006-01-02 15:04:05 MST"))
 	} else {
-		yellow.Println("    Status: Modified since generation ⚠")
+		colorYellow.Println("    Status: Modified since generation ⚠")
 	}
 
 	// Check if profile would generate different content
@@ -267,6 +230,6 @@ func showProjectDockerfileStatus(p *profile.Profile, dockerfilePath string, base
 	expectedDigest := digest.Calculate(expectedContent)
 
 	if expectedDigest != p.Build.DockerfileDigest {
-		yellow.Println("    Note: Profile has changed since last build")
+		colorYellow.Println("    Note: Profile has changed since last build")
 	}
 }

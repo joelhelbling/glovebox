@@ -1,0 +1,352 @@
+package generator
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/joelhelbling/glovebox/internal/mod"
+)
+
+func TestCollectAptRepos(t *testing.T) {
+	t.Run("empty mods", func(t *testing.T) {
+		result := collectAptRepos([]*mod.Mod{})
+		if len(result) != 0 {
+			t.Errorf("expected empty result, got %d items", len(result))
+		}
+	})
+
+	t.Run("single mod with repos", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "test", AptRepos: []string{"ppa:test/repo"}},
+		}
+		result := collectAptRepos(mods)
+		if len(result) != 1 {
+			t.Errorf("expected 1 repo, got %d", len(result))
+		}
+		if result[0] != "ppa:test/repo" {
+			t.Errorf("expected 'ppa:test/repo', got %q", result[0])
+		}
+	})
+
+	t.Run("deduplicates repos", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "mod1", AptRepos: []string{"ppa:shared/repo"}},
+			{Name: "mod2", AptRepos: []string{"ppa:shared/repo", "ppa:unique/repo"}},
+		}
+		result := collectAptRepos(mods)
+		if len(result) != 2 {
+			t.Errorf("expected 2 unique repos, got %d", len(result))
+		}
+	})
+}
+
+func TestCollectAptPackages(t *testing.T) {
+	t.Run("empty mods", func(t *testing.T) {
+		result := collectAptPackages([]*mod.Mod{})
+		if len(result) != 0 {
+			t.Errorf("expected empty result, got %d items", len(result))
+		}
+	})
+
+	t.Run("single mod with packages", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "test", AptPackages: []string{"curl", "wget"}},
+		}
+		result := collectAptPackages(mods)
+		if len(result) != 2 {
+			t.Errorf("expected 2 packages, got %d", len(result))
+		}
+	})
+
+	t.Run("deduplicates packages", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "mod1", AptPackages: []string{"curl", "git"}},
+			{Name: "mod2", AptPackages: []string{"git", "wget"}},
+		}
+		result := collectAptPackages(mods)
+		if len(result) != 3 {
+			t.Errorf("expected 3 unique packages (curl, git, wget), got %d", len(result))
+		}
+	})
+
+	t.Run("preserves order", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "mod1", AptPackages: []string{"aaa", "bbb"}},
+			{Name: "mod2", AptPackages: []string{"ccc"}},
+		}
+		result := collectAptPackages(mods)
+		expected := []string{"aaa", "bbb", "ccc"}
+		for i, pkg := range expected {
+			if result[i] != pkg {
+				t.Errorf("expected %q at index %d, got %q", pkg, i, result[i])
+			}
+		}
+	})
+}
+
+func TestCollectEnvVars(t *testing.T) {
+	t.Run("empty mods", func(t *testing.T) {
+		result := collectEnvVars([]*mod.Mod{})
+		if len(result) != 0 {
+			t.Errorf("expected empty result, got %d items", len(result))
+		}
+	})
+
+	t.Run("single mod with env vars", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "test", Env: map[string]string{"FOO": "bar"}},
+		}
+		result := collectEnvVars(mods)
+		if result["FOO"] != "bar" {
+			t.Errorf("expected FOO=bar, got FOO=%q", result["FOO"])
+		}
+	})
+
+	t.Run("later mods override earlier", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "mod1", Env: map[string]string{"PATH": "/first"}},
+			{Name: "mod2", Env: map[string]string{"PATH": "/second"}},
+		}
+		result := collectEnvVars(mods)
+		if result["PATH"] != "/second" {
+			t.Errorf("expected PATH=/second (override), got PATH=%q", result["PATH"])
+		}
+	})
+
+	t.Run("merges non-conflicting vars", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "mod1", Env: map[string]string{"A": "1"}},
+			{Name: "mod2", Env: map[string]string{"B": "2"}},
+		}
+		result := collectEnvVars(mods)
+		if result["A"] != "1" || result["B"] != "2" {
+			t.Errorf("expected A=1 and B=2, got %v", result)
+		}
+	})
+}
+
+func TestDetermineDefaultShell(t *testing.T) {
+	t.Run("no shell specified returns bash", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "base"},
+		}
+		result := determineDefaultShell(mods)
+		if result != "bash" {
+			t.Errorf("expected 'bash' default, got %q", result)
+		}
+	})
+
+	t.Run("uses specified shell", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "fish", UserShell: "/usr/bin/fish"},
+		}
+		result := determineDefaultShell(mods)
+		if result != "/usr/bin/fish" {
+			t.Errorf("expected '/usr/bin/fish', got %q", result)
+		}
+	})
+
+	t.Run("last shell wins", func(t *testing.T) {
+		mods := []*mod.Mod{
+			{Name: "bash", UserShell: "bash"},
+			{Name: "zsh", UserShell: "zsh"},
+			{Name: "fish", UserShell: "fish"},
+		}
+		result := determineDefaultShell(mods)
+		if result != "fish" {
+			t.Errorf("expected 'fish' (last), got %q", result)
+		}
+	})
+
+	t.Run("empty mods returns bash", func(t *testing.T) {
+		result := determineDefaultShell([]*mod.Mod{})
+		if result != "bash" {
+			t.Errorf("expected 'bash' default, got %q", result)
+		}
+	})
+}
+
+func TestGenerateBase(t *testing.T) {
+	t.Run("generates valid Dockerfile for base mod", func(t *testing.T) {
+		dockerfile, err := GenerateBase([]string{"base"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		// Check for required Dockerfile elements
+		checks := []struct {
+			name    string
+			content string
+		}{
+			{"header comment", "# Generated by glovebox"},
+			{"base image", "FROM ubuntu:24.04"},
+			{"non-interactive", "DEBIAN_FRONTEND=noninteractive"},
+			{"user switch", "USER ubuntu"},
+			{"workdir", "WORKDIR /workspace"},
+			{"entrypoint", "ENTRYPOINT"},
+		}
+
+		for _, check := range checks {
+			if !strings.Contains(dockerfile, check.content) {
+				t.Errorf("expected Dockerfile to contain %s (%q)", check.name, check.content)
+			}
+		}
+	})
+
+	t.Run("includes apt packages from mods", func(t *testing.T) {
+		dockerfile, err := GenerateBase([]string{"base"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		// Base mod should include curl, git, etc.
+		if !strings.Contains(dockerfile, "curl") {
+			t.Error("expected Dockerfile to include 'curl' package")
+		}
+		if !strings.Contains(dockerfile, "git") {
+			t.Error("expected Dockerfile to include 'git' package")
+		}
+	})
+
+	t.Run("includes dependency mods", func(t *testing.T) {
+		// mise requires homebrew requires base
+		dockerfile, err := GenerateBase([]string{"tools/mise"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		// Should include homebrew setup
+		if !strings.Contains(dockerfile, "homebrew") || !strings.Contains(dockerfile, "Homebrew") {
+			t.Error("expected Dockerfile to include homebrew setup comments")
+		}
+	})
+
+	t.Run("fails for non-existent mod", func(t *testing.T) {
+		_, err := GenerateBase([]string{"nonexistent/fake"})
+		if err == nil {
+			t.Error("expected error for non-existent mod")
+		}
+	})
+
+	t.Run("sets default shell to bash", func(t *testing.T) {
+		dockerfile, err := GenerateBase([]string{"base"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		if !strings.Contains(dockerfile, `CMD ["bash"]`) {
+			t.Error("expected CMD [\"bash\"] for default shell")
+		}
+	})
+}
+
+func TestGenerateProject(t *testing.T) {
+	t.Run("extends base image", func(t *testing.T) {
+		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"base", "tools/homebrew"})
+		if err != nil {
+			t.Fatalf("GenerateProject() error = %v", err)
+		}
+
+		if !strings.Contains(dockerfile, "FROM glovebox:base") {
+			t.Error("expected Dockerfile to extend glovebox:base")
+		}
+	})
+
+	t.Run("excludes base mods", func(t *testing.T) {
+		// mise requires homebrew requires base
+		// If base and homebrew are in baseModIDs, only mise should be in output
+		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"base", "tools/homebrew"})
+		if err != nil {
+			t.Fatalf("GenerateProject() error = %v", err)
+		}
+
+		// Should include mise setup
+		if !strings.Contains(dockerfile, "mise") {
+			t.Error("expected Dockerfile to include mise setup")
+		}
+
+		// The apt_packages from base shouldn't be installed again
+		// (base has curl, git, etc. - those are in the base image)
+		lines := strings.Split(dockerfile, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "apt-get install") && strings.Contains(line, "curl") {
+				t.Error("base package 'curl' should not be reinstalled in project Dockerfile")
+			}
+		}
+	})
+
+	t.Run("switches to root then back to ubuntu", func(t *testing.T) {
+		dockerfile, err := GenerateProject([]string{"editors/neovim"}, []string{"base", "tools/homebrew"})
+		if err != nil {
+			t.Fatalf("GenerateProject() error = %v", err)
+		}
+
+		// Should switch to root for installations
+		if !strings.Contains(dockerfile, "USER root") {
+			t.Error("expected USER root for installations")
+		}
+
+		// Should switch back to ubuntu
+		if !strings.Contains(dockerfile, "USER ubuntu") {
+			t.Error("expected USER ubuntu after installations")
+		}
+	})
+
+	t.Run("empty mods produces minimal Dockerfile", func(t *testing.T) {
+		dockerfile, err := GenerateProject([]string{}, []string{"base"})
+		if err != nil {
+			t.Fatalf("GenerateProject() error = %v", err)
+		}
+
+		if !strings.Contains(dockerfile, "# (no project-specific mods)") {
+			t.Error("expected comment about no project-specific mods")
+		}
+	})
+}
+
+func TestDockerfileStructure(t *testing.T) {
+	t.Run("instructions in correct order", func(t *testing.T) {
+		dockerfile, err := GenerateBase([]string{"base"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		// Check that key instructions appear in correct order
+		fromIdx := strings.Index(dockerfile, "FROM")
+		runIdx := strings.Index(dockerfile, "RUN")
+		userIdx := strings.Index(dockerfile, "USER ubuntu")
+		workdirIdx := strings.Index(dockerfile, "WORKDIR /workspace")
+		entrypointIdx := strings.Index(dockerfile, "ENTRYPOINT")
+		cmdIdx := strings.Index(dockerfile, "CMD")
+
+		if fromIdx > runIdx {
+			t.Error("FROM should come before RUN")
+		}
+		if runIdx > userIdx {
+			t.Error("RUN should come before USER ubuntu")
+		}
+		if userIdx > workdirIdx {
+			t.Error("USER ubuntu should come before WORKDIR /workspace")
+		}
+		if workdirIdx > entrypointIdx {
+			t.Error("WORKDIR should come before ENTRYPOINT")
+		}
+		if entrypointIdx > cmdIdx {
+			t.Error("ENTRYPOINT should come before CMD")
+		}
+	})
+}
+
+func TestEnvVarsInDockerfile(t *testing.T) {
+	t.Run("homebrew sets PATH", func(t *testing.T) {
+		dockerfile, err := GenerateBase([]string{"tools/homebrew"})
+		if err != nil {
+			t.Fatalf("GenerateBase() error = %v", err)
+		}
+
+		// Homebrew should add its bin to PATH
+		if !strings.Contains(dockerfile, "linuxbrew") {
+			t.Error("expected Dockerfile to include linuxbrew paths")
+		}
+	})
+}
