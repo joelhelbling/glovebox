@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/digest"
+	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -50,7 +50,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	} else {
 		// Check if image exists
 		fmt.Print("  Image: glovebox:base")
-		if imageExists("glovebox:base") {
+		if docker.ImageExists("glovebox:base") {
 			green.Println(" ✓")
 		} else {
 			yellow.Println(" (not built)")
@@ -85,7 +85,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		// Check if image exists
 		imageName := projectProfile.ImageName()
 		fmt.Printf("  Image: %s", imageName)
-		if imageExists(imageName) {
+		if docker.ImageExists(imageName) {
 			green.Println(" ✓")
 		} else {
 			yellow.Println(" (not built)")
@@ -116,25 +116,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 }
 
 func showContainerStatus(cwd string, green, yellow, dim *color.Color) {
-	// Calculate container name (same logic as run.go)
-	absPath, err := filepath.Abs(cwd)
-	if err != nil {
-		yellow.Printf("  Error: %v\n", err)
-		return
-	}
+	// Calculate container name
+	containerName := docker.ContainerName(cwd)
 
-	hash := sha256.Sum256([]byte(absPath))
-	shortHash := fmt.Sprintf("%x", hash)[:7]
+	// Workspace mount display
+	absPath, _ := os.Getwd()
 	dirName := filepath.Base(absPath)
-	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
-
-	// Workspace mount
 	fmt.Printf("  Workspace: %s → /%s\n", collapsePath(absPath), dirName)
 
 	// Container status
 	fmt.Printf("  Container: %s\n", containerName)
-	if containerExists(containerName) {
-		if containerRunning(containerName) {
+	if docker.ContainerExists(containerName) {
+		if docker.ContainerRunning(containerName) {
 			green.Println("    Status: Running ✓")
 		} else {
 			green.Println("    Status: Stopped (will resume on next run) ✓")
@@ -147,20 +140,6 @@ func showContainerStatus(cwd string, green, yellow, dim *color.Color) {
 	} else {
 		dim.Println("    Status: Will be created on first run")
 	}
-}
-
-func containerExists(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", name)
-	return cmd.Run() == nil
-}
-
-func containerRunning(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(output)) == "true"
 }
 
 func getContainerChanges(name string) ([]string, error) {
@@ -177,16 +156,6 @@ func getContainerChanges(name string) ([]string, error) {
 		}
 	}
 	return changes, nil
-}
-
-func volumeExists(name string) bool {
-	cmd := exec.Command("docker", "volume", "inspect", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-	// Check that output contains the volume name (not just an error)
-	return strings.Contains(string(output), name)
 }
 
 func showDockerfileStatus(p *profile.Profile, dockerfilePath string, generateFunc func([]string) (string, error), green, yellow, dim *color.Color) {

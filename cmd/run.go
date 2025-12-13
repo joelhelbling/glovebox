@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bufio"
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
 )
@@ -71,14 +71,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate container name for this project
-	hash := sha256.Sum256([]byte(absPath))
-	shortHash := fmt.Sprintf("%x", hash)[:7]
+	containerName := docker.ContainerName(absPath)
 	dirName := filepath.Base(absPath)
-	containerName := fmt.Sprintf("glovebox-%s-%s", dirName, shortHash)
 
 	// Check if container already exists
-	containerExists := checkContainerExists(containerName)
-	containerRunning := checkContainerRunning(containerName)
+	containerExists := docker.ContainerExists(containerName)
+	containerRunning := docker.ContainerRunning(containerName)
 
 	fmt.Printf("Starting glovebox with workspace: %s\n", collapsePath(absPath))
 	fmt.Printf("Using image: %s\n", imageName)
@@ -108,22 +106,6 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	// After container exits, check for changes and offer to commit
 	return handlePostExit(containerName, imageName, green, yellow, dim)
-}
-
-// checkContainerExists checks if a container with the given name exists (running or stopped)
-func checkContainerExists(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", name)
-	return cmd.Run() == nil
-}
-
-// checkContainerRunning checks if a container is currently running
-func checkContainerRunning(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(output)) == "true"
 }
 
 // attachToContainer attaches to a running container
@@ -361,7 +343,6 @@ func deleteContainer(containerName string) error {
 	return cmd.Run()
 }
 
-
 // determineImage figures out which Docker image to use for the given directory
 func determineImage(dir string) (string, error) {
 	yellow := color.New(color.FgYellow)
@@ -377,7 +358,7 @@ func determineImage(dir string) (string, error) {
 		// Project profile exists - use project image
 		imageName := projectProfile.ImageName()
 
-		if !imageExists(imageName) {
+		if !docker.ImageExists(imageName) {
 			yellow.Printf("Project image %s not found. Building...\n\n", imageName)
 			if err := buildProjectImage(projectProfile, green, yellow); err != nil {
 				return "", fmt.Errorf("building project image: %w", err)
@@ -389,7 +370,7 @@ func determineImage(dir string) (string, error) {
 	}
 
 	// No project profile - use base image
-	if !imageExists("glovebox:base") {
+	if !docker.ImageExists("glovebox:base") {
 		// Check if global profile exists
 		globalProfile, err := profile.LoadGlobal()
 		if err != nil {

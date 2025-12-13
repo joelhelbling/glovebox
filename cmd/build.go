@@ -9,6 +9,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/digest"
+	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -105,7 +106,7 @@ func buildBaseImage(green, yellow *color.Color) error {
 
 func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 	// When building (not just generating), ensure base image exists
-	if !buildGenerate && !imageExists("glovebox:base") {
+	if !buildGenerate && !docker.ImageExists("glovebox:base") {
 		fmt.Println("Base image not found. Building glovebox:base first...")
 		if err := buildBaseImage(green, yellow); err != nil {
 			return fmt.Errorf("building base image: %w", err)
@@ -115,9 +116,9 @@ func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 
 	// Check if base image has changed since last project build
 	var baseDigest string
-	if imageExists("glovebox:base") {
+	if docker.ImageExists("glovebox:base") {
 		var err error
-		baseDigest, err = getImageDigest("glovebox:base")
+		baseDigest, err = docker.GetImageDigest("glovebox:base")
 		if err != nil {
 			return fmt.Errorf("getting base image digest: %w", err)
 		}
@@ -336,18 +337,4 @@ func runDockerBuild(dockerfilePath, imageName string) error {
 
 	color.New(color.FgGreen).Printf("\n✓ Docker image %s built successfully\n", imageName)
 	return nil
-}
-
-func imageExists(name string) bool {
-	cmd := exec.Command("docker", "image", "inspect", name)
-	return cmd.Run() == nil
-}
-
-func getImageDigest(name string) (string, error) {
-	cmd := exec.Command("docker", "image", "inspect", "--format", "{{.Id}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
 }
