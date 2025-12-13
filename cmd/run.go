@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -39,10 +38,6 @@ func init() {
 }
 
 func runRun(cmd *cobra.Command, args []string) error {
-	yellow := color.New(color.FgYellow)
-	green := color.New(color.FgGreen)
-	dim := color.New(color.Faint)
-
 	// Determine target directory
 	targetDir := "."
 	if len(args) > 0 {
@@ -86,26 +81,26 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	if containerRunning {
 		// Container is already running - attach to it
-		yellow.Printf("Container %s is already running. Attaching...\n", containerName)
+		colorYellow.Printf("Container %s is already running. Attaching...\n", containerName)
 		return attachToContainer(containerName)
 	}
 
 	if containerExists {
 		// Container exists but stopped - start it
-		dim.Printf("Container: %s (existing)\n", containerName)
+		colorDim.Printf("Container: %s (existing)\n", containerName)
 		if err := startContainer(containerName, absPath, workspacePath); err != nil {
 			return err
 		}
 	} else {
 		// Create new container
-		dim.Printf("Container: %s (new)\n", containerName)
+		colorDim.Printf("Container: %s (new)\n", containerName)
 		if err := createAndStartContainer(containerName, imageName, absPath, workspacePath); err != nil {
 			return err
 		}
 	}
 
 	// After container exits, check for changes and offer to commit
-	return handlePostExit(containerName, imageName, green, yellow, dim)
+	return handlePostExit(containerName, imageName)
 }
 
 // attachToContainer attaches to a running container
@@ -166,7 +161,7 @@ func createAndStartContainer(name, imageName, hostPath, workspacePath string) er
 }
 
 // handlePostExit checks for container changes and offers to commit them
-func handlePostExit(containerName, imageName string, green, yellow, dim *color.Color) error {
+func handlePostExit(containerName, imageName string) error {
 	// Get the diff
 	changes, err := getContainerDiff(containerName)
 	if err != nil {
@@ -185,7 +180,7 @@ func handlePostExit(containerName, imageName string, green, yellow, dim *color.C
 	}
 
 	fmt.Println()
-	yellow.Println("Changes detected in container:")
+	colorYellow.Println("Changes detected in container:")
 	for _, s := range summary {
 		fmt.Printf("  %s\n", s)
 	}
@@ -200,24 +195,24 @@ func handlePostExit(containerName, imageName string, green, yellow, dim *color.C
 	switch getPostExitChoice() {
 	case "yes":
 		if err := commitContainer(containerName, imageName); err != nil {
-			yellow.Printf("Warning: could not commit changes: %v\n", err)
+			colorYellow.Printf("Warning: could not commit changes: %v\n", err)
 			return nil
 		}
-		green.Printf("Changes committed to %s\n", imageName)
+		colorGreen.Printf("Changes committed to %s\n", imageName)
 
 		// Remove the container so next run starts fresh from the committed image
 		if err := deleteContainer(containerName); err != nil {
-			yellow.Printf("Warning: could not remove container: %v\n", err)
+			colorYellow.Printf("Warning: could not remove container: %v\n", err)
 		}
 	case "erase":
 		if err := deleteContainer(containerName); err != nil {
-			yellow.Printf("Warning: could not remove container: %v\n", err)
+			colorYellow.Printf("Warning: could not remove container: %v\n", err)
 			return nil
 		}
-		dim.Println("Container removed. Next run will start fresh.")
+		colorDim.Println("Container removed. Next run will start fresh.")
 	default:
 		// "no" - leave container as-is
-		dim.Println("Changes kept in container.")
+		colorDim.Println("Changes kept in container.")
 	}
 
 	return nil
@@ -345,9 +340,6 @@ func deleteContainer(containerName string) error {
 
 // determineImage figures out which Docker image to use for the given directory
 func determineImage(dir string) (string, error) {
-	yellow := color.New(color.FgYellow)
-	green := color.New(color.FgGreen)
-
 	// Check for project profile
 	projectProfile, err := profile.LoadProject(dir)
 	if err != nil {
@@ -359,8 +351,8 @@ func determineImage(dir string) (string, error) {
 		imageName := projectProfile.ImageName()
 
 		if !docker.ImageExists(imageName) {
-			yellow.Printf("Project image %s not found. Building...\n\n", imageName)
-			if err := buildProjectImage(projectProfile, green, yellow); err != nil {
+			colorYellow.Printf("Project image %s not found. Building...\n\n", imageName)
+			if err := buildProjectImage(projectProfile); err != nil {
 				return "", fmt.Errorf("building project image: %w", err)
 			}
 			fmt.Println()
@@ -381,8 +373,8 @@ func determineImage(dir string) (string, error) {
 			return "", fmt.Errorf("no glovebox profile found.\nRun 'glovebox init --global' to create a global profile first")
 		}
 
-		yellow.Println("Base image glovebox:base not found. Building...")
-		if err := buildBaseImage(green, yellow); err != nil {
+		colorYellow.Println("Base image glovebox:base not found. Building...")
+		if err := buildBaseImage(); err != nil {
 			return "", fmt.Errorf("building base image: %w", err)
 		}
 		fmt.Println()

@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/digest"
 	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
@@ -50,13 +49,10 @@ func runBuild(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting current directory: %w", err)
 	}
 
-	yellow := color.New(color.FgYellow)
-	green := color.New(color.FgGreen)
-
 	// Determine what to build
 	if buildBase {
 		// Explicitly building base image
-		return buildBaseImage(green, yellow)
+		return buildBaseImage()
 	}
 
 	// Check for project profile first
@@ -67,7 +63,7 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 	if projectProfile != nil {
 		// Project profile exists - build project image (which requires base)
-		return buildProjectImage(projectProfile, green, yellow)
+		return buildProjectImage(projectProfile)
 	}
 
 	// No project profile - check for global profile and build base
@@ -77,13 +73,13 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalProfile != nil {
-		return buildBaseImage(green, yellow)
+		return buildBaseImage()
 	}
 
 	return fmt.Errorf("no profile found. Run 'glovebox init' or 'glovebox init --global' first")
 }
 
-func buildBaseImage(green, yellow *color.Color) error {
+func buildBaseImage() error {
 	globalProfile, err := profile.LoadGlobal()
 	if err != nil {
 		return fmt.Errorf("loading global profile: %w", err)
@@ -101,14 +97,14 @@ func buildBaseImage(green, yellow *color.Color) error {
 		return fmt.Errorf("generating Dockerfile: %w", err)
 	}
 
-	return buildImage(globalProfile, dockerfilePath, imageName, newContent, green, yellow)
+	return buildImage(globalProfile, dockerfilePath, imageName, newContent)
 }
 
-func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
+func buildProjectImage(p *profile.Profile) error {
 	// When building (not just generating), ensure base image exists
 	if !buildGenerate && !docker.ImageExists("glovebox:base") {
 		fmt.Println("Base image not found. Building glovebox:base first...")
-		if err := buildBaseImage(green, yellow); err != nil {
+		if err := buildBaseImage(); err != nil {
 			return fmt.Errorf("building base image: %w", err)
 		}
 		fmt.Println()
@@ -124,7 +120,7 @@ func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 		}
 
 		if p.Build.BaseDigest != "" && p.Build.BaseDigest != baseDigest {
-			yellow.Println("⚠ Base image has changed since last build")
+			colorYellow.Println("⚠ Base image has changed since last build")
 			fmt.Println("Project image will be rebuilt with new base.")
 			fmt.Println()
 		}
@@ -156,10 +152,10 @@ func buildProjectImage(p *profile.Profile, green, yellow *color.Color) error {
 		p.Build.BaseDigest = baseDigest
 	}
 
-	return buildImage(p, dockerfilePath, imageName, newContent, green, yellow)
+	return buildImage(p, dockerfilePath, imageName, newContent)
 }
 
-func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string, green, yellow *color.Color) error {
+func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string) error {
 	newDigest := digest.Calculate(newContent)
 
 	// Check if Dockerfile exists and has been modified
@@ -171,7 +167,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 
 		// Case 1: Dockerfile matches what we'd generate - no changes needed
 		if existingDigest == newDigest {
-			green.Printf("✓ Dockerfile is already up to date (%s)\n", dockerfilePath)
+			colorGreen.Printf("✓ Dockerfile is already up to date (%s)\n", dockerfilePath)
 			if !buildGenerate {
 				return runDockerBuild(dockerfilePath, imageName)
 			}
@@ -184,8 +180,8 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 			fmt.Println("Regenerating Dockerfile...")
 		} else if p.Build.DockerfileDigest != "" {
 			// Case 3: Dockerfile was modified externally
-			yellow.Printf("⚠ Dockerfile has been modified since last generation\n")
-			yellow.Printf("  Path: %s\n\n", dockerfilePath)
+			colorYellow.Printf("⚠ Dockerfile has been modified since last generation\n")
+			colorYellow.Printf("  Path: %s\n\n", dockerfilePath)
 
 			// Show diff
 			if err := showDiff(string(existingContent), newContent); err != nil {
@@ -218,7 +214,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 				if err := p.Save(); err != nil {
 					return fmt.Errorf("saving profile: %w", err)
 				}
-				green.Println("✓ Keeping current Dockerfile and updating digest")
+				colorGreen.Println("✓ Keeping current Dockerfile and updating digest")
 				if !buildGenerate {
 					return runDockerBuild(dockerfilePath, imageName)
 				}
@@ -250,7 +246,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	green.Printf("✓ Generated Dockerfile (%s)\n", dockerfilePath)
+	colorGreen.Printf("✓ Generated Dockerfile (%s)\n", dockerfilePath)
 
 	if buildGenerate {
 		return nil
@@ -335,6 +331,6 @@ func runDockerBuild(dockerfilePath, imageName string) error {
 		return fmt.Errorf("docker build failed: %w", err)
 	}
 
-	color.New(color.FgGreen).Printf("\n✓ Docker image %s built successfully\n", imageName)
+	colorGreen.Printf("\n✓ Docker image %s built successfully\n", imageName)
 	return nil
 }

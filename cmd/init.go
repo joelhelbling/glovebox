@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -88,8 +87,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Profile created at %s\n", profilePath)
+	colorGreen.Printf("✓ Profile created at %s\n", profilePath)
 	fmt.Println("\nNext steps:")
 	if initBase {
 		fmt.Println("  glovebox build --base   # Build the base image (glovebox:base)")
@@ -112,8 +110,6 @@ func interactiveModSelection() ([]string, error) {
 	selected := []string{"base"}
 
 	reader := bufio.NewReader(os.Stdin)
-	bold := color.New(color.Bold)
-	dim := color.New(color.Faint)
 
 	// Sort categories for consistent ordering
 	var categories []string
@@ -132,7 +128,7 @@ func interactiveModSelection() ([]string, error) {
 		mods := modsByCategory[category]
 		sort.Strings(mods)
 
-		bold.Printf("%s:\n", cases.Title(language.English).String(category))
+		colorBold.Printf("%s:\n", cases.Title(language.English).String(category))
 
 		// Display options
 		for i, id := range mods {
@@ -142,7 +138,7 @@ func interactiveModSelection() ([]string, error) {
 				desc = m.Description
 			}
 			fmt.Printf("  %d) %-20s", i+1, id)
-			dim.Printf(" %s\n", desc)
+			colorDim.Printf(" %s\n", desc)
 		}
 
 		// Prompt for selection

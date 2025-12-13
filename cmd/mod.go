@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/spf13/cobra"
 )
@@ -178,8 +177,7 @@ category: %s
 		return fmt.Errorf("writing mod: %w", err)
 	}
 
-	green := color.New(color.FgGreen)
-	green.Printf("✓ Created mod at %s\n", modPath)
+	colorGreen.Printf("✓ Created mod at %s\n", modPath)
 
 	modID := category + "/" + modName
 	fmt.Println("\nNext steps:")
@@ -225,14 +223,11 @@ func runModList(cmd *cobra.Command, args []string) error {
 	}
 	sort.Strings(categories)
 
-	bold := color.New(color.Bold)
-	dim := color.New(color.Faint)
-
 	for _, category := range categories {
 		mods := modsByCategory[category]
 		sort.Strings(mods)
 
-		bold.Printf("\n%s:\n", category)
+		colorBold.Printf("\n%s:\n", category)
 		for _, id := range mods {
 			m, err := mod.Load(id)
 			if err != nil {
@@ -240,7 +235,7 @@ func runModList(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			fmt.Printf("  %-20s", id)
-			dim.Printf(" %s\n", m.Description)
+			colorDim.Printf(" %s\n", m.Description)
 		}
 	}
 	fmt.Println()
