@@ -229,9 +229,10 @@ func volumeExists(name string) bool {
 
 ## Minor Issues
 
-### 9. Deprecated `strings.Title` Usage
+### 9. Deprecated `strings.Title` Usage ✅ DONE
 
 **Location:** `cmd/init.go:133`
+**Status:** Resolved - Replaced with `golang.org/x/text/cases`
 
 ```go
 bold.Printf("%s:\n", strings.Title(category))
@@ -393,7 +394,7 @@ For an AI agent to address these issues incrementally:
 | 4 | Fix `go.mod` indirect markers | Trivial | Low | ✅ Done |
 | 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | ✅ Done |
 | 6 | Add path traversal validation | Low | Medium | ✅ Done |
-| 7 | Fix deprecated `strings.Title` | Low | Low | |
+| 7 | Fix deprecated `strings.Title` | Low | Low | ✅ Done |
 | 8 | Standardize error handling | Medium | Medium | |
 | 9 | Make env passthrough configurable | Medium | Low | |
 | 10 | Centralize color definitions | Low | Low | |

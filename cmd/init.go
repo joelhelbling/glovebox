@@ -12,6 +12,8 @@ import (
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
@@ -130,7 +132,7 @@ func interactiveModSelection() ([]string, error) {
 		mods := modsByCategory[category]
 		sort.Strings(mods)
 
-		bold.Printf("%s:\n", strings.Title(category))
+		bold.Printf("%s:\n", cases.Title(language.English).String(category))
 
 		// Display options
 		for i, id := range mods {
