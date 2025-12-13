@@ -92,13 +92,20 @@ This means you can install tools, configure editors, and customize your environm
 ```
 $ exit
 
-Changes detected in container:
-  A brew package: ripgrep
-  A brew package: fd
-  47 changes in /home/ubuntu
-
-Persist these changes to the image? [y/N] y
-Changes committed to glovebox:myproject-abc123
+  ┃ Changes detected in container
+  ┃
+  ┃   A brew package: ripgrep
+  ┃   A brew package: fd
+  ┃   47 changes in /home/ubuntu
+  ┃
+  ┃ What would you like to do?
+  ┃
+  ┃   [y]es    commit changes to image (fresh container next run)
+  ┃   [n]o     keep uncommitted changes (resume this container next run)
+  ┃   [e]rase  discard changes (fresh container next run)
+  ┃
+  ┃ Choice: y
+  ┃ ✓ Changes committed to glovebox:myproject-abc123
 ```
 
 ## Design Philosophy
@@ -141,35 +148,37 @@ Glovebox balances two concerns:
 
 Glovebox uses a mod-based system to compose your development environment:
 
-```bash
+```
 $ glovebox mod list
 
-ai:
-  ai/claude-code       Anthropic's Claude Code CLI assistant
-  ai/gemini-cli        Google's Gemini CLI assistant
-  ai/opencode          OpenCode AI coding assistant
-
-core:
-  base                 Core dependencies required by all glovebox environments
-
-editors:
-  editors/emacs        GNU Emacs - the extensible text editor
-  editors/helix        Helix - a post-modern modal text editor
-  editors/neovim       Neovim - hyperextensible Vim-based text editor
-  editors/vim          Vim - the ubiquitous text editor
-
-languages:
-  languages/nodejs     Node.js JavaScript runtime (LTS)
-
-shells:
-  shells/bash          Bash shell (default, minimal configuration)
-  shells/fish          Fish shell - the friendly interactive shell
-  shells/zsh           Z shell with sensible defaults
-
-tools:
-  tools/homebrew       The Missing Package Manager for macOS (or Linux)
-  tools/mise           Polyglot runtime version manager
-  tools/tmux           Terminal multiplexer with tmuxp session manager
+  ┃ Available Mods
+  ┃
+  ┃ core/
+  ┃   base         Core dependencies required by all glovebox environments
+  ┃
+  ┃ shells/
+  ┃   bash         Bash shell (default, minimal configuration)
+  ┃   fish         Fish shell - the friendly interactive shell
+  ┃   zsh          Z shell with sensible defaults
+  ┃
+  ┃ tools/
+  ┃   homebrew     The Missing Package Manager for macOS (or Linux)
+  ┃   mise         Polyglot runtime version manager
+  ┃   tmux         Terminal multiplexer with tmuxp session manager
+  ┃
+  ┃ editors/
+  ┃   emacs        GNU Emacs - the extensible text editor
+  ┃   helix        Helix - a post-modern modal text editor
+  ┃   neovim       Neovim - hyperextensible Vim-based text editor
+  ┃   vim          Vim - the ubiquitous text editor
+  ┃
+  ┃ languages/
+  ┃   nodejs       Node.js JavaScript runtime (LTS)
+  ┃
+  ┃ ai/
+  ┃   claude-code  Anthropic's Claude Code CLI assistant
+  ┃   gemini-cli   Google's Gemini CLI assistant
+  ┃   opencode     OpenCode AI coding assistant
 ```
 
 ## Workflow
@@ -245,10 +254,12 @@ passthrough_env:
 Variables from both global and project profiles are merged, so you can define common ones globally and add project-specific ones as needed. When entering a new container, glovebox displays which variables are being passed through:
 
 ```
-Starting glovebox with workspace: ~/projects/my-app
-Using image: glovebox:my-app-abc1234
-Container: glovebox-my-app-abc1234 (new)
-Passing through: ANTHROPIC_API_KEY, GITHUB_TOKEN
+  ┃ glovebox
+  ┃
+  ┃ Workspace   ~/projects/my-app
+  ┃ Image       glovebox:my-app-abc1234
+  ┃ Container   glovebox-my-app-abc1234 (new)
+  ┃ Env         ANTHROPIC_API_KEY, GITHUB_TOKEN
 ```
 
 Only variables that are actually set in your host environment are passed through.
