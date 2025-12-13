@@ -225,14 +225,33 @@ exit
 
 If you say yes, the change is committed to your image. If you say no, the change still persists in the container for next time—it just won't survive a `glovebox clean`.
 
-## API Keys
+## Environment Variables
 
-The following environment variables are passed through to the container:
+Glovebox can pass through environment variables from your host to the container. Configure this in your profile with the `passthrough_env` field:
 
-- `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
-- `GOOGLE_API_KEY`
-- `GEMINI_API_KEY`
+```yaml
+# ~/.glovebox/profile.yaml (or .glovebox/profile.yaml)
+version: 1
+mods:
+  - base
+  - shells/zsh
+passthrough_env:
+  - ANTHROPIC_API_KEY
+  - OPENAI_API_KEY
+  - GITHUB_TOKEN
+  - MY_CUSTOM_VAR
+```
+
+Variables from both global and project profiles are merged, so you can define common ones globally and add project-specific ones as needed. When entering a new container, glovebox displays which variables are being passed through:
+
+```
+Starting glovebox with workspace: ~/projects/my-app
+Using image: glovebox:my-app-abc1234
+Container: glovebox-my-app-abc1234 (new)
+Passing through: ANTHROPIC_API_KEY, GITHUB_TOKEN
+```
+
+Only variables that are actually set in your host environment are passed through.
 
 ## Creating Custom Mods
 
