@@ -166,24 +166,6 @@ func TestDetermineDefaultShell(t *testing.T) {
 	})
 }
 
-func TestSortStrings(t *testing.T) {
-	t.Run("sorts in place", func(t *testing.T) {
-		s := []string{"c", "a", "b"}
-		sortStrings(s)
-		if s[0] != "a" || s[1] != "b" || s[2] != "c" {
-			t.Errorf("expected [a, b, c], got %v", s)
-		}
-	})
-
-	t.Run("handles empty slice", func(t *testing.T) {
-		s := []string{}
-		sortStrings(s) // should not panic
-		if len(s) != 0 {
-			t.Error("expected empty slice")
-		}
-	})
-}
-
 func TestGenerateBase(t *testing.T) {
 	t.Run("generates valid Dockerfile for base mod", func(t *testing.T) {
 		dockerfile, err := GenerateBase([]string{"base"})
@@ -318,21 +300,6 @@ func TestGenerateProject(t *testing.T) {
 
 		if !strings.Contains(dockerfile, "# (no project-specific mods)") {
 			t.Error("expected comment about no project-specific mods")
-		}
-	})
-}
-
-func TestGenerate(t *testing.T) {
-	t.Run("delegates to GenerateBase", func(t *testing.T) {
-		base, err1 := GenerateBase([]string{"base"})
-		legacy, err2 := Generate([]string{"base"})
-
-		if err1 != nil || err2 != nil {
-			t.Fatalf("errors: GenerateBase=%v, Generate=%v", err1, err2)
-		}
-
-		if base != legacy {
-			t.Error("Generate should produce same output as GenerateBase")
 		}
 	})
 }

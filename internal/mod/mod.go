@@ -65,11 +65,26 @@ func loadFromFile(path string) (*Mod, error) {
 	return &m, nil
 }
 
+// validateModID checks that a mod ID doesn't contain path traversal sequences
+func validateModID(id string) error {
+	if strings.Contains(id, "..") {
+		return fmt.Errorf("invalid mod id: %s (path traversal not allowed)", id)
+	}
+	if filepath.IsAbs(id) {
+		return fmt.Errorf("invalid mod id: %s (absolute paths not allowed)", id)
+	}
+	return nil
+}
+
 // Load reads a mod by its ID (e.g., "shells/fish"), checking:
 // 1. Project-local: .glovebox/mods/<id>.yaml
 // 2. User global: ~/.glovebox/mods/<id>.yaml
 // 3. Embedded mods (bundled in binary)
 func Load(id string) (*Mod, error) {
+	if err := validateModID(id); err != nil {
+		return nil, err
+	}
+
 	filename := id + ".yaml"
 
 	// Check local filesystem paths first
@@ -98,6 +113,10 @@ func Load(id string) (*Mod, error) {
 // LoadRaw reads a mod's raw YAML content by its ID.
 // Returns the raw bytes and the source path (or "embedded" for built-in mods).
 func LoadRaw(id string) ([]byte, string, error) {
+	if err := validateModID(id); err != nil {
+		return nil, "", err
+	}
+
 	filename := id + ".yaml"
 
 	// Check local filesystem paths first

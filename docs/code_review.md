@@ -143,9 +143,10 @@ if m, err := loadFromFile(fullPath); err == nil {
 
 ---
 
-### 5. Deprecated Function Still Present
+### 5. Deprecated Function Still Present ✅ DONE
 
 **Location:** `internal/generator/generator.go:277-279`
+**Status:** Resolved - Removed deprecated `Generate` function (unused)
 
 ```go
 // Generate creates a Dockerfile from a list of mod IDs (legacy, for base images)
@@ -280,9 +281,10 @@ var (
 
 ---
 
-### 11. go.mod Uses `// indirect` for Direct Dependencies
+### 11. go.mod Uses `// indirect` for Direct Dependencies ✅ DONE
 
 **Location:** `go.mod`
+**Status:** Resolved - `go mod tidy` properly separates direct and indirect dependencies
 
 ```go
 require (
@@ -298,9 +300,10 @@ require (
 
 ---
 
-### 12. Potential Path Traversal in Mod Loading
+### 12. Potential Path Traversal in Mod Loading ✅ DONE
 
 **Location:** `internal/mod/mod.go:72-96`
+**Status:** Resolved - Added `validateModID()` function that rejects `..` sequences and absolute paths
 
 ```go
 func Load(id string) (*Mod, error) {
@@ -343,9 +346,10 @@ dockerfileDir := filepath.Dir(dockerfilePath)
 
 ---
 
-### 14. Generator Has Unused Helper
+### 14. Generator Has Unused Helper ✅ DONE
 
 **Location:** `internal/generator/generator.go:323-325`
+**Status:** Resolved - Removed wrapper, now uses `sort.Strings()` directly
 
 ```go
 func sortStrings(s []string) {
@@ -386,9 +390,9 @@ For an AI agent to address these issues incrementally:
 | 1 | Add test infrastructure | Medium | High | ✅ Done |
 | 2 | Extract Docker helpers to `internal/docker/` | Low | High | ✅ Done |
 | 3 | Consolidate container name generation | Low | Medium | ✅ Done |
-| 4 | Fix `go.mod` indirect markers | Trivial | Low | |
-| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | Partial (`volumeExists` removed) |
-| 6 | Add path traversal validation | Low | Medium | |
+| 4 | Fix `go.mod` indirect markers | Trivial | Low | ✅ Done |
+| 5 | Remove unused code (`volumeExists`, `sortStrings`, `Generate`) | Trivial | Low | ✅ Done |
+| 6 | Add path traversal validation | Low | Medium | ✅ Done |
 | 7 | Fix deprecated `strings.Title` | Low | Low | |
 | 8 | Standardize error handling | Medium | Medium | |
 | 9 | Make env passthrough configurable | Medium | Low | |

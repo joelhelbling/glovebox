@@ -1,8 +1,42 @@
 package mod
 
 import (
+	"strings"
 	"testing"
 )
+
+func TestValidateModID(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		wantErr bool
+	}{
+		{"valid simple id", "base", false},
+		{"valid category path", "shells/bash", false},
+		{"valid nested path", "ai/claude-code", false},
+		{"path traversal simple", "..", true},
+		{"path traversal prefix", "../etc/passwd", true},
+		{"path traversal middle", "shells/../../../etc/passwd", true},
+		{"path traversal suffix", "shells/..", true},
+		{"absolute path unix", "/etc/passwd", true},
+		{"absolute path with category", "/shells/bash", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateModID(tt.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateModID(%q) error = %v, wantErr %v", tt.id, err, tt.wantErr)
+			}
+			if err != nil && tt.wantErr {
+				// Verify error message is informative
+				if !strings.Contains(err.Error(), tt.id) {
+					t.Errorf("error should contain the invalid id, got: %v", err)
+				}
+			}
+		})
+	}
+}
 
 func TestLoad(t *testing.T) {
 	tests := []struct {
@@ -60,6 +94,24 @@ func TestLoad(t *testing.T) {
 			wantErr: true,
 			check:   nil,
 		},
+		{
+			name:    "reject path traversal with ..",
+			id:      "../../../etc/passwd",
+			wantErr: true,
+			check:   nil,
+		},
+		{
+			name:    "reject path traversal in middle",
+			id:      "shells/../../../etc/passwd",
+			wantErr: true,
+			check:   nil,
+		},
+		{
+			name:    "reject absolute path",
+			id:      "/etc/passwd",
+			wantErr: true,
+			check:   nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -98,6 +150,20 @@ func TestLoadRaw(t *testing.T) {
 		_, _, err := LoadRaw("nonexistent/fake")
 		if err == nil {
 			t.Error("expected error for non-existent mod")
+		}
+	})
+
+	t.Run("reject path traversal", func(t *testing.T) {
+		_, _, err := LoadRaw("../../../etc/passwd")
+		if err == nil {
+			t.Error("expected error for path traversal")
+		}
+	})
+
+	t.Run("reject absolute path", func(t *testing.T) {
+		_, _, err := LoadRaw("/etc/passwd")
+		if err == nil {
+			t.Error("expected error for absolute path")
 		}
 	})
 }

@@ -118,7 +118,7 @@ func GenerateBase(modIDs []string) (string, error) {
 		for key := range envVars {
 			envKeys = append(envKeys, key)
 		}
-		sortStrings(envKeys)
+		sort.Strings(envKeys)
 		for _, key := range envKeys {
 			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
 		}
@@ -247,7 +247,7 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 		for key := range envVars {
 			envKeys = append(envKeys, key)
 		}
-		sortStrings(envKeys)
+		sort.Strings(envKeys)
 		for _, key := range envKeys {
 			b.WriteString(fmt.Sprintf("ENV %s=%s\n", key, envVars[key]))
 		}
@@ -270,12 +270,6 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	b.WriteString("WORKDIR /workspace\n")
 
 	return b.String(), nil
-}
-
-// Generate creates a Dockerfile from a list of mod IDs (legacy, for base images)
-// Deprecated: Use GenerateBase or GenerateProject instead
-func Generate(modIDs []string) (string, error) {
-	return GenerateBase(modIDs)
 }
 
 // collectAptRepos gathers unique apt repos from all mods
@@ -317,11 +311,6 @@ func collectEnvVars(mods []*mod.Mod) map[string]string {
 		}
 	}
 	return result
-}
-
-// sortStrings sorts a slice of strings in place
-func sortStrings(s []string) {
-	sort.Strings(s)
 }
 
 // determineDefaultShell finds the last shell specified by mods
