@@ -267,7 +267,13 @@ func isNoiseChange(path string) bool {
 	noisePaths := []string{
 		"/home",
 		"/home/dev",
+		"/home/dev/.local",
+		"/home/dev/.local/share",
+		"/home/dev/.local/share/fish",
 		"/root",
+		"/root/.local",
+		"/root/.local/share",
+		"/root/.local/share/fish",
 		"/var",
 		"/var/log",
 		"/var/cache",
@@ -287,6 +293,7 @@ func isNoiseChange(path string) bool {
 		".history",
 		// Cache directories
 		"/.cache/",
+		"/.cache",
 		"/.local/share/recently-used",
 		// Temp files
 		"/tmp/",
@@ -304,6 +311,20 @@ func isNoiseChange(path string) bool {
 		"/var/cache/",
 		"/var/lib/apt/",
 		"/var/lib/dpkg/",
+	}
+
+	// Paths that end with these are noise (parent dirs of noisy files)
+	noiseSuffixes := []string{
+		"/.local",
+		"/.local/share",
+		"/.local/share/fish",
+		"/.local/share/zsh",
+	}
+
+	for _, suffix := range noiseSuffixes {
+		if strings.HasSuffix(path, suffix) {
+			return true
+		}
 	}
 
 	for _, pattern := range noisePatterns {
