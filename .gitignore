@@ -7,3 +7,6 @@ bin/
 
 # Local glovebox profile (project-specific)
 .glovebox/
+
+# Generated documentation
+docs/developer_notes/help_screens.md

@@ -1,14 +1,14 @@
 #!/bin/bash
 #
 # Capture all help screens from the glovebox CLI
-# Outputs to docs/help_screens.md
+# Outputs to docs/developer_notes/help_screens.md
 #
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-OUTPUT_FILE="$PROJECT_ROOT/docs/help_screens.md"
+OUTPUT_FILE="$PROJECT_ROOT/docs/developer_notes/help_screens.md"
 GB="$PROJECT_ROOT/bin/glovebox"
 
 # Ensure the binary exists
@@ -18,8 +18,8 @@ if [[ ! -x "$GB" ]]; then
     exit 1
 fi
 
-# Ensure docs directory exists
-mkdir -p "$PROJECT_ROOT/docs"
+# Ensure docs/developer_notes directory exists
+mkdir -p "$PROJECT_ROOT/docs/developer_notes"
 
 # Helper function to add a command's help to the output
 add_help() {
