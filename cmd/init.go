@@ -99,7 +99,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Interactive mod selection
-	selectedMods, err := interactiveModSelection()
+	selectedMods, err := interactiveModSelection(initBase)
 	if err != nil {
 		return fmt.Errorf("selecting mods: %w", err)
 	}
@@ -244,17 +244,31 @@ func showNextSteps(isBase bool) {
 	fmt.Println("  $EDITOR <profile-path>       # Edit profile directly")
 }
 
-func interactiveModSelection() ([]string, error) {
+func interactiveModSelection(isBase bool) ([]string, error) {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Step 1: Select OS
-	selectedOS, err := selectOS(reader)
-	if err != nil {
-		return nil, err
-	}
+	var selectedOS string
+	var selected []string
 
-	// Start with the OS mod
-	selected := []string{"os/" + selectedOS}
+	if isBase {
+		// For base profile: prompt for OS selection
+		var err error
+		selectedOS, err = selectOS(reader)
+		if err != nil {
+			return nil, err
+		}
+		// Start with the OS mod
+		selected = []string{"os/" + selectedOS}
+	} else {
+		// For project profile: detect OS from base profile
+		var err error
+		selectedOS, err = getBaseOS()
+		if err != nil {
+			return nil, fmt.Errorf("could not determine OS from base profile: %w\nRun 'glovebox init --base' first to create a base profile", err)
+		}
+		// Project profiles don't include the OS mod - they inherit from base
+		selected = []string{}
+	}
 
 	// Step 2: Select other mods
 	modsByCategory, err := mod.ListAll()
@@ -293,7 +307,11 @@ func interactiveModSelection() ([]string, error) {
 	})
 
 	fmt.Println("\nSelect additional mods for your glovebox environment.")
-	fmt.Printf("OS: %s (dependencies will be resolved automatically)\n", selectedOS)
+	if isBase {
+		fmt.Printf("OS: %s (dependencies will be resolved automatically)\n", selectedOS)
+	} else {
+		fmt.Printf("OS: %s (inherited from base image)\n", selectedOS)
+	}
 
 	for _, category := range categories {
 		allMods := modsByCategory[category]
@@ -343,6 +361,30 @@ func interactiveModSelection() ([]string, error) {
 	}
 
 	return selected, nil
+}
+
+// getBaseOS retrieves the OS from the global (base) profile
+func getBaseOS() (string, error) {
+	globalProfile, err := profile.LoadGlobal()
+	if err != nil {
+		return "", fmt.Errorf("loading global profile: %w", err)
+	}
+	if globalProfile == nil {
+		return "", fmt.Errorf("no global profile found")
+	}
+
+	// Find the OS mod in the profile
+	for _, modID := range globalProfile.Mods {
+		m, err := mod.Load(modID)
+		if err != nil {
+			continue
+		}
+		if m.Category == "os" {
+			return m.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no OS mod found in global profile")
 }
 
 // selectOS prompts the user to select an operating system
