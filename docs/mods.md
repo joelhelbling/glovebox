@@ -19,29 +19,25 @@ Choose one as your base. This determines which package manager and OS-specific m
 | Mod | Description | OS |
 |-----|-------------|-----|
 | `shells/bash` | Bash shell (default, minimal configuration) | Any |
-| `shells/zsh-ubuntu` | Z shell with sensible defaults | Ubuntu |
-| `shells/zsh-fedora` | Z shell with sensible defaults | Fedora |
-| `shells/zsh-alpine` | Z shell with sensible defaults | Alpine |
-| `shells/fish-ubuntu` | Fish shell - the friendly interactive shell | Ubuntu |
-| `shells/fish-fedora` | Fish shell - the friendly interactive shell | Fedora |
-| `shells/fish-alpine` | Fish shell - the friendly interactive shell | Alpine |
+| `shells/zsh` | Z shell with sensible defaults | Alpine, Fedora, Ubuntu |
+| `shells/fish` | Fish shell - the friendly interactive shell | Alpine, Fedora, Ubuntu |
 
 ### Editors (`editors/`)
 
-| Mod | Description |
-|-----|-------------|
-| `editors/vim` | Vim - the ubiquitous text editor |
-| `editors/neovim` | Neovim - hyperextensible Vim-based text editor |
-| `editors/helix` | Helix - a post-modern modal text editor |
-| `editors/emacs` | Emacs - the extensible text editor |
+| Mod | Description | OS |
+|-----|-------------|-----|
+| `editors/vim` | Vim - the ubiquitous text editor | Alpine, Fedora, Ubuntu |
+| `editors/neovim` | Neovim - hyperextensible Vim-based text editor | Alpine, Fedora, Ubuntu |
+| `editors/helix` | Helix - a post-modern modal text editor | Alpine, Fedora, Ubuntu |
+| `editors/emacs` | Emacs - the extensible text editor | Alpine, Fedora, Ubuntu |
 
 ### Tools (`tools/`)
 
-| Mod | Description |
-|-----|-------------|
-| `tools/homebrew` | The Missing Package Manager for macOS (or Linux) |
-| `tools/mise` | Polyglot runtime version manager |
-| `tools/tmux` | Terminal multiplexer with tmuxp session manager |
+| Mod | Description | OS |
+|-----|-------------|-----|
+| `tools/homebrew` | The Missing Package Manager for macOS (or Linux) | Any |
+| `tools/mise` | Polyglot runtime version manager | Any |
+| `tools/tmux` | Terminal multiplexer | Alpine, Fedora, Ubuntu |
 
 ### Languages (`languages/`)
 
@@ -59,15 +55,34 @@ Choose one as your base. This determines which package manager and OS-specific m
 
 ## OS-Specific Mods
 
-Some mods are tied to a specific operating system because they use OS-specific package managers or configurations. These are marked in `glovebox mod list` output:
+Many mods have OS-specific variants that use native package managers (apt, dnf, apk) for lighter-weight installations. When you run `glovebox mod list`, these are shown consolidated:
 
 ```
-  ┃ shells/
-  ┃   bash         Bash shell (default, minimal configuration)
-  ┃   fish-alpine  Fish shell [alpine]
-  ┃   fish-fedora  Fish shell [fedora]
-  ┃   fish-ubuntu  Fish shell [ubuntu]
+  ┃ editors/
+  ┃   emacs   Emacs - the extensible text editor (for Alpine, Fedora, Ubuntu)
+  ┃   helix   Helix - a post-modern modal text editor (for Alpine, Fedora, Ubuntu)
+  ┃   neovim  Neovim - hyperextensible Vim-based text editor (for Alpine, Fedora, Ubuntu)
+  ┃   vim     Vim - the ubiquitous text editor (for Alpine, Fedora, Ubuntu)
 ```
+
+### Automatic Resolution
+
+When adding mods, Glovebox automatically resolves base names to the correct OS-specific variant:
+
+```bash
+# If your profile uses Ubuntu:
+glovebox add editors/vim
+# ✓ Added 'editors/vim-ubuntu' to profile
+```
+
+The same works for removal:
+
+```bash
+glovebox remove editors/vim
+# ✓ Removed 'editors/vim-ubuntu' from profile
+```
+
+Your profile stores the full mod name (e.g., `editors/vim-ubuntu`) so you can always see exactly what's installed.
 
 During `glovebox init`, only mods compatible with your selected OS are shown.
 
@@ -88,9 +103,9 @@ Local mods take precedence, so you can override built-in mods if needed.
 Mods can declare dependencies using `requires`:
 
 ```yaml
-name: claude-code
+name: gemini-cli
 requires:
-  - tools/homebrew  # Concrete dependency on specific mod
+  - languages/nodejs  # Needs Node.js for npm install
 ```
 
 When you add a mod, Glovebox automatically includes its dependencies.
@@ -130,24 +145,25 @@ You can see the generated Dockerfile at `~/.glovebox/Dockerfile` (base) or `.glo
 To see what a mod does:
 
 ```bash
-glovebox mod cat editors/neovim
+glovebox mod cat editors/vim-ubuntu
 ```
 
 Output:
 
 ```yaml
-name: neovim
-description: Neovim - hyperextensible Vim-based text editor
-category: editors
+name: vim-ubuntu
+description: Vim - the ubiquitous text editor (Ubuntu)
+category: editor
+requires:
+  - ubuntu
+provides:
+  - vim
 
 run_as_root: |
-  curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
-  tar -C /opt -xzf nvim-linux-x86_64.tar.gz
-  rm nvim-linux-x86_64.tar.gz
-  ln -s /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+  apt-get update && apt-get install -y vim && rm -rf /var/lib/apt/lists/*
 
 env:
-  EDITOR: nvim
+  EDITOR: vim
 ```
 
 ## Adding and Removing Mods
@@ -155,14 +171,14 @@ env:
 Add a mod to your profile (adds to project profile if one exists, otherwise to base profile):
 
 ```bash
-glovebox add tools/tmux
-glovebox add ai/claude-code
+glovebox add editors/vim      # Resolves to editors/vim-ubuntu on Ubuntu
+glovebox add ai/claude-code   # OS-agnostic, adds as-is
 ```
 
 Remove a mod:
 
 ```bash
-glovebox remove tools/tmux
+glovebox remove editors/vim   # Removes editors/vim-ubuntu if that's installed
 ```
 
 After changing mods, rebuild:

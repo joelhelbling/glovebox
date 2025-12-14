@@ -231,12 +231,18 @@ After creating or modifying a mod:
 
 ## Best Practices
 
-1. **Use Homebrew for portability** - If a tool is available via Homebrew, prefer that over OS-specific packages
+1. **Choose the right installation method**:
+   - For OS-specific mods, prefer native package managers (apt, dnf, apk) for lighter-weight images
+   - Homebrew is still useful for tools not available in native repos, or when you want one mod that works across all OSes
 
-2. **Declare dependencies explicitly** - Don't assume other mods are present
+2. **Create OS-specific variants when needed** - If your mod uses OS-specific commands, create separate variants (e.g., `my-tool-ubuntu.yaml`, `my-tool-fedora.yaml`) with:
+   - `requires: [ubuntu]` (or fedora, alpine)
+   - `provides: [my-tool]` so other mods can depend on the abstract capability
 
-3. **Keep mods focused** - One tool or configuration per mod is easier to manage
+3. **Declare dependencies explicitly** - Don't assume other mods are present
 
-4. **Test on clean builds** - Use `glovebox clean` before testing to ensure your mod works from scratch
+4. **Keep mods focused** - One tool or configuration per mod is easier to manage
 
-5. **Document with description** - A good description helps when browsing `mod list`
+5. **Test on clean builds** - Use `glovebox clean` before testing to ensure your mod works from scratch
+
+6. **Document with description** - A good description helps when browsing `mod list`

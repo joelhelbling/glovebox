@@ -87,18 +87,22 @@ glovebox clone https://gitlab.com/user/repo.git
 
 Adds a mod to your profile. If a project profile exists (`.glovebox/profile.yaml`), adds to that; otherwise adds to the global profile.
 
+For OS-specific mods, you can use the base name and Glovebox will resolve it automatically:
+
 ```bash
-glovebox add tools/homebrew
-glovebox add ai/claude-code
+glovebox add editors/vim       # Resolves to editors/vim-ubuntu on Ubuntu
+glovebox add ai/claude-code    # OS-agnostic, adds as-is
 ```
 
 ### `glovebox remove <mod>`
 
 Removes a mod from your profile. Alias: `glovebox rm`
 
+Like `add`, you can use base names for OS-specific mods:
+
 ```bash
-glovebox remove languages/nodejs
-glovebox rm shells/zsh
+glovebox remove editors/vim    # Removes editors/vim-ubuntu if installed
+glovebox rm shells/zsh         # Removes shells/zsh-ubuntu if installed
 ```
 
 ## Status and Information
@@ -156,17 +160,18 @@ $ glovebox mod list
   ┃ Available Mods
   ┃
   ┃ os/
-  ┃   alpine       Alpine Linux base image
-  ┃   fedora       Fedora base image
-  ┃   ubuntu       Ubuntu base image
+  ┃   alpine       Alpine Linux base image (lightweight, musl-based)
+  ┃   fedora       Fedora base image with core dependencies
+  ┃   ubuntu       Ubuntu base image with core dependencies
   ┃
   ┃ shells/
-  ┃   bash         Bash shell
-  ┃   zsh-ubuntu   Z shell [ubuntu]
+  ┃   bash         Bash shell (default, minimal configuration)
+  ┃   fish         Fish shell - the friendly interactive shell (for Alpine, Fedora, Ubuntu)
+  ┃   zsh          Z shell with sensible defaults (for Alpine, Fedora, Ubuntu)
   ...
 ```
 
-Mods marked with `[ubuntu]`, `[fedora]`, or `[alpine]` are OS-specific.
+Mods marked with `(for Alpine, Fedora, Ubuntu)` have OS-specific variants. When you `add` or `remove` these mods, Glovebox automatically resolves to the correct variant for your profile's OS.
 
 ### `glovebox mod cat <id>`
 
