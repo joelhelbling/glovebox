@@ -149,7 +149,39 @@ func attachToContainer(name string) error {
 	docker.Stdin = os.Stdin
 	docker.Stdout = os.Stdout
 	docker.Stderr = os.Stderr
-	return docker.Run()
+	return ignoreExitError(docker.Run())
+}
+
+// ignoreExitError filters out normal container exit codes while preserving
+// Docker-specific errors that indicate real problems.
+//
+// Exit codes:
+//   - 125: Docker daemon error (failed to create/start container)
+//   - 126: Command cannot be invoked (permission denied)
+//   - 127: Command not found in container
+//   - 137: Container killed by SIGKILL (often OOM killer)
+//   - Other: Normal exit (including non-zero from last shell command)
+func ignoreExitError(err error) error {
+	if err == nil {
+		return nil
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		return err // Not an exit error, return as-is
+	}
+
+	code := exitErr.ExitCode()
+	switch {
+	case code >= 125 && code <= 127:
+		// Docker daemon errors - these are real failures
+		return fmt.Errorf("docker error (exit %d): %w", code, err)
+	case code == 137:
+		// SIGKILL - often OOM, worth mentioning
+		return fmt.Errorf("container was killed (exit 137, possibly out of memory)")
+	default:
+		// Normal container exit, ignore
+		return nil
+	}
 }
 
 // startContainer starts an existing stopped container
@@ -159,7 +191,7 @@ func startContainer(name, hostPath, workspacePath string) error {
 	docker.Stdin = os.Stdin
 	docker.Stdout = os.Stdout
 	docker.Stderr = os.Stderr
-	return docker.Run()
+	return ignoreExitError(docker.Run())
 }
 
 // createAndStartContainerWithEnv creates a new container with pre-computed env vars
@@ -187,7 +219,7 @@ func createAndStartContainerWithEnv(name, imageName, hostPath, workspacePath str
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	return ignoreExitError(cmd.Run())
 }
 
 // handlePostExit checks for container changes and offers to commit them
