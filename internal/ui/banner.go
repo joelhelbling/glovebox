@@ -13,6 +13,7 @@ type BannerInfo struct {
 	Image           string
 	Container       string
 	ContainerStatus string // "new", "existing", "running"
+	OS              string // base OS name (ubuntu, fedora, alpine)
 	PassthroughEnv  []string
 }
 
@@ -74,6 +75,9 @@ func (b *Banner) Render(info BannerInfo) string {
 	line(titleStyle.Render("glovebox"))
 	line("")
 	line(labelValue("Workspace", info.Workspace))
+	if info.OS != "" {
+		line(labelValue("OS", info.OS))
+	}
 	line(labelValue("Image", info.Image))
 
 	// Container line with status

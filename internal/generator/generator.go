@@ -68,8 +68,8 @@ func GenerateBase(modIDs []string) (string, error) {
 
 	// Switch to non-root user
 	b.WriteString("# Switch to non-root user\n")
-	b.WriteString("USER ubuntu\n")
-	b.WriteString("WORKDIR /home/ubuntu\n\n")
+	b.WriteString("USER dev\n")
+	b.WriteString("WORKDIR /home/dev\n\n")
 
 	// Environment variables - set before run_as_user so mods can use each other's env vars
 	// (e.g., neovim needs homebrew's PATH to run `brew install`)
@@ -79,10 +79,10 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("# Ensure local binaries are in PATH\n")
 	if pathVal, hasPath := envVars["PATH"]; hasPath {
 		// Prepend our paths to the mod-specified PATH
-		b.WriteString(fmt.Sprintf("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:%s\"\n", pathVal))
+		b.WriteString(fmt.Sprintf("ENV PATH=\"/home/dev/.local/bin:/usr/local/bin:%s\"\n", pathVal))
 		delete(envVars, "PATH") // Don't emit again below
 	} else {
-		b.WriteString("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:$PATH\"\n")
+		b.WriteString("ENV PATH=\"/home/dev/.local/bin:/usr/local/bin:$PATH\"\n")
 	}
 
 	if len(envVars) > 0 {
@@ -175,8 +175,8 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 
 	// Switch back to non-root user
 	b.WriteString("# Switch back to non-root user\n")
-	b.WriteString("USER ubuntu\n")
-	b.WriteString("WORKDIR /home/ubuntu\n\n")
+	b.WriteString("USER dev\n")
+	b.WriteString("WORKDIR /home/dev\n\n")
 
 	// Environment variables - set before run_as_user so mods can use each other's env vars
 	envVars := collectEnvVars(mods)

@@ -25,9 +25,9 @@ run_as_root: |
     findutils \
     && dnf clean all
 
-  # Create the fedora user (doesn't exist by default)
-  useradd -m -s /bin/bash -u 1000 ubuntu
-  echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu
-  chmod 0440 /etc/sudoers.d/ubuntu
-  mkdir -p /home/ubuntu/.local/bin
-  chown -R ubuntu:ubuntu /home/ubuntu
+  # Create the dev user
+  useradd -m -s /bin/bash -u 1000 dev
+  echo "dev ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/dev
+  chmod 0440 /etc/sudoers.d/dev
+  mkdir -p /home/dev/.local/bin
+  chown -R dev:dev /home/dev

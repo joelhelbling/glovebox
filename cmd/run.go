@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/docker"
+	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/joelhelbling/glovebox/internal/ui"
 	"github.com/spf13/cobra"
@@ -87,6 +88,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		containerStatus = "new"
 	}
 
+	// Determine OS from profile
+	osName := getOSFromProfile(absPath)
+
 	// Get passthrough env vars for banner (only relevant for new containers)
 	var passthroughVars []string
 	if !containerExists {
@@ -110,6 +114,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	banner := ui.NewBanner()
 	banner.Print(ui.BannerInfo{
 		Workspace:       collapsePath(absPath),
+		OS:              osName,
 		Image:           imageName,
 		Container:       containerName,
 		ContainerStatus: containerStatus,
@@ -354,6 +359,30 @@ func commitContainer(containerName, imageName string) error {
 func deleteContainer(containerName string) error {
 	cmd := exec.Command("docker", "container", "rm", containerName)
 	return cmd.Run()
+}
+
+// getOSFromProfile determines the OS name from the effective profile
+func getOSFromProfile(dir string) string {
+	// Try project profile first, then global
+	p, err := profile.LoadProject(dir)
+	if err != nil || p == nil {
+		p, err = profile.LoadGlobal()
+		if err != nil || p == nil {
+			return ""
+		}
+	}
+
+	// Look for OS mod in profile
+	for _, modID := range p.Mods {
+		m, err := mod.Load(modID)
+		if err != nil {
+			continue
+		}
+		if m.Category == "os" {
+			return m.Name
+		}
+	}
+	return ""
 }
 
 // determineImage figures out which Docker image to use for the given directory

@@ -9,8 +9,8 @@ provides:
 run_as_root: |
   apk add --no-cache zsh
   sed -i "s|/bin/bash|/bin/zsh|" /etc/passwd
-  mkdir -p /home/ubuntu/.config/zsh
-  chown -R ubuntu:ubuntu /home/ubuntu/.config/zsh
+  mkdir -p /home/dev/.config/zsh
+  chown -R dev:dev /home/dev/.config/zsh
 
 env:
   SHELL: /bin/zsh

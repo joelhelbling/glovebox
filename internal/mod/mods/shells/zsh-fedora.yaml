@@ -8,9 +8,9 @@ provides:
 
 run_as_root: |
   dnf install -y zsh && dnf clean all
-  usermod -s /usr/bin/zsh ubuntu
-  mkdir -p /home/ubuntu/.config/zsh
-  chown -R ubuntu:ubuntu /home/ubuntu/.config/zsh
+  usermod -s /usr/bin/zsh dev
+  mkdir -p /home/dev/.config/zsh
+  chown -R dev:dev /home/dev/.config/zsh
 
 env:
   SHELL: /usr/bin/zsh

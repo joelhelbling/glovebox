@@ -8,9 +8,9 @@ provides:
 
 run_as_root: |
   dnf install -y fish && dnf clean all
-  usermod -s /usr/bin/fish ubuntu
-  mkdir -p /home/ubuntu/.config/fish
-  chown -R ubuntu:ubuntu /home/ubuntu/.config/fish
+  usermod -s /usr/bin/fish dev
+  mkdir -p /home/dev/.config/fish
+  chown -R dev:dev /home/dev/.config/fish
 
 env:
   SHELL: /usr/bin/fish

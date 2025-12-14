@@ -14,9 +14,9 @@ run_as_root: |
   apt-get update
   apt-get install -y fish
   rm -rf /var/lib/apt/lists/*
-  usermod -s /usr/bin/fish ubuntu
-  mkdir -p /home/ubuntu/.config/fish
-  chown -R ubuntu:ubuntu /home/ubuntu/.config/fish
+  usermod -s /usr/bin/fish dev
+  mkdir -p /home/dev/.config/fish
+  chown -R dev:dev /home/dev/.config/fish
 
 env:
   SHELL: /usr/bin/fish
