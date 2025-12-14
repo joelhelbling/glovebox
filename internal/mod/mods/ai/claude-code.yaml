@@ -3,6 +3,8 @@ description: Anthropic's Claude Code CLI assistant
 category: ai
 requires:
   - tools/homebrew
+provides:
+  - claude-code
 
 run_as_user: |
   brew install --cask claude-code

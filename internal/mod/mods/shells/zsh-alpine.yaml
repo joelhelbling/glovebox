@@ -1,0 +1,18 @@
+name: zsh-alpine
+description: Z shell with sensible defaults (Alpine)
+category: shell
+requires:
+  - alpine
+provides:
+  - zsh
+
+run_as_root: |
+  apk add --no-cache zsh
+  sed -i "s|/bin/bash|/bin/zsh|" /etc/passwd
+  mkdir -p /home/dev/.config/zsh
+  chown -R dev:dev /home/dev/.config/zsh
+
+env:
+  SHELL: /bin/zsh
+
+user_shell: /bin/zsh

@@ -3,6 +3,8 @@ description: Polyglot runtime version manager (replaces asdf, nvm, rbenv, etc.)
 category: tool
 requires:
   - tools/homebrew
+provides:
+  - mise
 
 run_as_user: |
   brew install mise

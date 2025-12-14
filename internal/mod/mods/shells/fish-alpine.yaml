@@ -1,0 +1,18 @@
+name: fish-alpine
+description: Fish shell - the friendly interactive shell (Alpine)
+category: shell
+requires:
+  - alpine
+provides:
+  - fish
+
+run_as_root: |
+  apk add --no-cache fish
+  sed -i "s|/bin/bash|/usr/bin/fish|" /etc/passwd
+  mkdir -p /home/dev/.config/fish
+  chown -R dev:dev /home/dev/.config/fish
+
+env:
+  SHELL: /usr/bin/fish
+
+user_shell: /usr/bin/fish

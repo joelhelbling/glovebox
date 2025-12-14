@@ -202,7 +202,8 @@ func TestPassthroughEnvInDockerArgs(t *testing.T) {
 // Assumption #3: Mods selected in base are installed in the base image
 func TestBaseModsInBaseImage(t *testing.T) {
 	// Generate a base Dockerfile with specific mods
-	baseMods := []string{"base", "shells/bash", "tools/homebrew"}
+	// Note: os/ubuntu provides "base" so homebrew's requirement is satisfied
+	baseMods := []string{"os/ubuntu", "shells/bash", "tools/homebrew"}
 
 	dockerfile, err := generator.GenerateBase(baseMods)
 	if err != nil {
@@ -214,9 +215,9 @@ func TestBaseModsInBaseImage(t *testing.T) {
 		t.Error("base image should start FROM ubuntu, not extend another image")
 	}
 
-	// Verify base mod content is included
+	// Verify OS mod content is included (curl is installed by os/ubuntu)
 	if !strings.Contains(dockerfile, "curl") {
-		t.Error("expected base mod packages (curl) to be included")
+		t.Error("expected OS mod packages (curl) to be included")
 	}
 
 	// Verify homebrew setup is included
@@ -235,9 +236,9 @@ func TestBaseModsInBaseImage(t *testing.T) {
 //
 // Assumption #4: Mods in project but not in base are installed in project
 func TestProjectModsNotInBase(t *testing.T) {
-	// Base has: base, homebrew
+	// Base has: os/ubuntu (provides base), homebrew
 	// Project has: mise (which requires homebrew, but homebrew is already in base)
-	baseMods := []string{"base", "tools/homebrew"}
+	baseMods := []string{"os/ubuntu", "tools/homebrew"}
 	projectMods := []string{"tools/mise"}
 
 	dockerfile, err := generator.GenerateProject(projectMods, baseMods)
@@ -261,9 +262,9 @@ func TestProjectModsNotInBase(t *testing.T) {
 //
 // Assumption #5: Mods in both base and project are NOT installed in project
 func TestOverlappingModsExcludedFromProject(t *testing.T) {
-	// Base has: base, homebrew
+	// Base has: os/ubuntu (provides base), homebrew
 	// Project has: homebrew (duplicate), mise
-	baseMods := []string{"base", "tools/homebrew"}
+	baseMods := []string{"os/ubuntu", "tools/homebrew"}
 	projectMods := []string{"tools/homebrew", "tools/mise"}
 
 	dockerfile, err := generator.GenerateProject(projectMods, baseMods)
@@ -292,9 +293,9 @@ func TestOverlappingModsExcludedFromProject(t *testing.T) {
 // TestModDependencyResolutionWithExclusions verifies that the mod loading
 // correctly excludes mods that are already satisfied by the base.
 func TestModDependencyResolutionWithExclusions(t *testing.T) {
-	// mise requires homebrew which requires base
-	// If base and homebrew are in baseModIDs, only mise should be loaded
-	baseMods := []string{"base", "tools/homebrew"}
+	// mise requires homebrew which requires base (provided by os/ubuntu)
+	// If os/ubuntu and homebrew are in baseModIDs, only mise should be loaded
+	baseMods := []string{"os/ubuntu", "tools/homebrew"}
 	projectMods := []string{"tools/mise"}
 
 	mods, err := mod.LoadMultipleExcluding(projectMods, baseMods)
@@ -315,10 +316,10 @@ func TestModDependencyResolutionWithExclusions(t *testing.T) {
 		t.Errorf("expected mise, got %s", mods[0].Name)
 	}
 
-	// Verify base and homebrew are NOT included
+	// Verify ubuntu and homebrew are NOT included
 	for _, m := range mods {
-		if m.Name == "base" {
-			t.Error("base should be excluded (already in base image)")
+		if m.Name == "ubuntu" {
+			t.Error("ubuntu should be excluded (already in base image)")
 		}
 		if m.Name == "homebrew" {
 			t.Error("homebrew should be excluded (already in base image)")
@@ -329,10 +330,10 @@ func TestModDependencyResolutionWithExclusions(t *testing.T) {
 // TestTransitiveDependenciesExcluded verifies that transitive dependencies
 // of base mods are also excluded from project builds.
 func TestTransitiveDependenciesExcluded(t *testing.T) {
-	// If base has mise (which requires homebrew which requires base),
+	// If base has os/ubuntu and mise (which requires homebrew which requires base),
 	// then a project adding neovim (which also requires homebrew)
-	// should not re-include homebrew or base
-	baseMods := []string{"tools/mise"} // This brings in base and homebrew transitively
+	// should not re-include homebrew or ubuntu
+	baseMods := []string{"os/ubuntu", "tools/mise"} // This brings in homebrew transitively
 	projectMods := []string{"editors/neovim"}
 
 	mods, err := mod.LoadMultipleExcluding(projectMods, baseMods)
@@ -340,10 +341,10 @@ func TestTransitiveDependenciesExcluded(t *testing.T) {
 		t.Fatalf("LoadMultipleExcluding() error: %v", err)
 	}
 
-	// Should only have neovim (not base, not homebrew)
+	// Should only have neovim (not ubuntu, not homebrew)
 	for _, m := range mods {
-		if m.Name == "base" {
-			t.Error("base should be excluded (transitive dependency of base mods)")
+		if m.Name == "ubuntu" {
+			t.Error("ubuntu should be excluded (transitive dependency of base mods)")
 		}
 		if m.Name == "homebrew" {
 			t.Error("homebrew should be excluded (transitive dependency of base mods)")

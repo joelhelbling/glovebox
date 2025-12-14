@@ -51,6 +51,7 @@ make install  # installs to /usr/local/bin with gb symlink
 
 ```bash
 # Create your base environment (one time setup)
+# Select your OS (Ubuntu, Fedora, or Alpine), shell, editor, and tools
 glovebox init --base
 glovebox build --base
 
@@ -75,7 +76,7 @@ Glovebox uses a **layered image approach**:
 │     Base Image              │  ← Your standard environment
 │     (glovebox:base)         │     Shell, editor, mise, etc.
 ├─────────────────────────────┤
-│     Ubuntu 24.04            │
+│  Ubuntu / Fedora / Alpine   │  ← Choose your base OS
 └─────────────────────────────┘
 ```
 
@@ -153,24 +154,30 @@ $ glovebox mod list
 
   ┃ Available Mods
   ┃
-  ┃ core/
-  ┃   base         Core dependencies required by all glovebox environments
+  ┃ os/
+  ┃   alpine       Alpine Linux base image (lightweight, musl-based)
+  ┃   fedora       Fedora base image with core dependencies
+  ┃   ubuntu       Ubuntu base image with core dependencies
   ┃
   ┃ shells/
   ┃   bash         Bash shell (default, minimal configuration)
-  ┃   fish         Fish shell - the friendly interactive shell
-  ┃   zsh          Z shell with sensible defaults
+  ┃   fish-alpine  Fish shell - the friendly interactive shell (Alpine) [alpine]
+  ┃   fish-fedora  Fish shell - the friendly interactive shell (Fedora) [fedora]
+  ┃   fish-ubuntu  Fish shell - the friendly interactive shell (Ubuntu) [ubuntu]
+  ┃   zsh-alpine   Z shell with sensible defaults (Alpine) [alpine]
+  ┃   zsh-fedora   Z shell with sensible defaults (Fedora) [fedora]
+  ┃   zsh-ubuntu   Z shell with sensible defaults (Ubuntu) [ubuntu]
+  ┃
+  ┃ editors/
+  ┃   emacs        Emacs - the extensible text editor
+  ┃   helix        Helix - a post-modern modal text editor
+  ┃   neovim       Neovim - hyperextensible Vim-based text editor
+  ┃   vim          Vim - the ubiquitous text editor
   ┃
   ┃ tools/
   ┃   homebrew     The Missing Package Manager for macOS (or Linux)
   ┃   mise         Polyglot runtime version manager
   ┃   tmux         Terminal multiplexer with tmuxp session manager
-  ┃
-  ┃ editors/
-  ┃   emacs        GNU Emacs - the extensible text editor
-  ┃   helix        Helix - a post-modern modal text editor
-  ┃   neovim       Neovim - hyperextensible Vim-based text editor
-  ┃   vim          Vim - the ubiquitous text editor
   ┃
   ┃ languages/
   ┃   nodejs       Node.js JavaScript runtime (LTS)
@@ -181,12 +188,16 @@ $ glovebox mod list
   ┃   opencode     OpenCode AI coding assistant
 ```
 
+Mods marked with `[ubuntu]`, `[fedora]`, or `[alpine]` are OS-specific. During `glovebox init`, only mods compatible with your selected OS are shown.
+
 ## Workflow
 
 ### Initial Setup (One Time)
 
 ```bash
 # Create your base environment with your preferred tools
+# You'll be prompted to select an OS (Ubuntu, Fedora, or Alpine)
+# and choose your shell, editor, and other tools
 glovebox init --base
 
 # Build the base image
@@ -242,8 +253,9 @@ Glovebox can pass through environment variables from your host to the container.
 # ~/.glovebox/profile.yaml (or .glovebox/profile.yaml)
 version: 1
 mods:
-  - base
-  - shells/zsh
+  - os/ubuntu
+  - shells/zsh-ubuntu
+  - editors/neovim
 passthrough_env:
   - ANTHROPIC_API_KEY
   - OPENAI_API_KEY
@@ -283,18 +295,19 @@ Create a YAML file with the following structure:
 name: my-tool
 description: My custom tool configuration
 category: custom
+
+# What this mod provides (optional, defaults to the mod name)
+provides:
+  - some-capability
+
+# Dependencies on other mods
 requires:
-  - base  # dependencies on other mods
-
-apt_repos:
-  - ppa:some/repo  # APT repositories to add
-
-apt_packages:
-  - some-package  # APT packages to install
+  - tools/homebrew  # Use full mod IDs for concrete dependencies
 
 run_as_root: |
   # Shell commands to run as root
-  curl -fsSL https://example.com/install.sh | bash
+  # Use apt/dnf/apk depending on your target OS
+  apt-get update && apt-get install -y some-package
 
 run_as_user: |
   # Shell commands to run as the ubuntu user
@@ -304,6 +317,16 @@ env:
   MY_VAR: value  # Environment variables to set
 
 user_shell: /usr/bin/bash  # Set as default shell (optional)
+```
+
+For OS-specific mods, add the OS as a requirement:
+
+```yaml
+name: zsh-ubuntu
+requires:
+  - ubuntu  # This mod only works with Ubuntu
+provides:
+  - zsh     # Satisfies abstract "zsh" dependency
 ```
 
 ### Examples

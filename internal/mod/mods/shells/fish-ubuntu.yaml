@@ -1,0 +1,24 @@
+name: fish-ubuntu
+description: Fish shell - the friendly interactive shell (Ubuntu)
+category: shell
+requires:
+  - ubuntu
+provides:
+  - fish
+
+run_as_root: |
+  # Add Fish PPA for latest version
+  apt-get update
+  apt-get install -y software-properties-common
+  add-apt-repository -y ppa:fish-shell/release-4
+  apt-get update
+  apt-get install -y fish
+  rm -rf /var/lib/apt/lists/*
+  usermod -s /usr/bin/fish dev
+  mkdir -p /home/dev/.config/fish
+  chown -R dev:dev /home/dev/.config/fish
+
+env:
+  SHELL: /usr/bin/fish
+
+user_shell: /usr/bin/fish

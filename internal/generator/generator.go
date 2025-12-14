@@ -17,6 +17,18 @@ func GenerateBase(modIDs []string) (string, error) {
 		return "", fmt.Errorf("loading mods: %w", err)
 	}
 
+	// Validate mods and get OS mod
+	osMod, err := mod.ValidateMods(mods)
+	if err != nil {
+		return "", fmt.Errorf("validating mods: %w", err)
+	}
+	if osMod == nil {
+		return "", fmt.Errorf("no OS mod found; base image requires an OS mod (e.g., os/ubuntu)")
+	}
+	if osMod.DockerfileFrom == "" {
+		return "", fmt.Errorf("OS mod %q does not specify dockerfile_from", osMod.Name)
+	}
+
 	var b strings.Builder
 
 	// Header
@@ -33,46 +45,8 @@ func GenerateBase(modIDs []string) (string, error) {
 	}
 	b.WriteString("\n")
 
-	// Base image
-	b.WriteString("FROM ubuntu:24.04\n\n")
-
-	// Avoid interactive prompts
-	b.WriteString("# Avoid interactive prompts during package installation\n")
-	b.WriteString("ENV DEBIAN_FRONTEND=noninteractive\n\n")
-
-	// Collect and dedupe apt repos
-	aptRepos := collectAptRepos(mods)
-	if len(aptRepos) > 0 {
-		// Need software-properties-common for apt-add-repository
-		b.WriteString("# Install software-properties-common for apt-add-repository\n")
-		b.WriteString("RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*\n\n")
-
-		b.WriteString("# Add APT repositories\n")
-		b.WriteString("RUN ")
-		for i, repo := range aptRepos {
-			if i > 0 {
-				b.WriteString(" && \\\n    ")
-			}
-			b.WriteString(fmt.Sprintf("apt-add-repository %s", repo))
-		}
-		b.WriteString("\n\n")
-	}
-
-	// Collect and dedupe apt packages
-	aptPackages := collectAptPackages(mods)
-	if len(aptPackages) > 0 {
-		b.WriteString("# Install packages\n")
-		b.WriteString("RUN apt-get update && apt-get install -y \\\n")
-		for i, pkg := range aptPackages {
-			b.WriteString(fmt.Sprintf("    %s", pkg))
-			if i < len(aptPackages)-1 {
-				b.WriteString(" \\\n")
-			} else {
-				b.WriteString(" \\\n    && rm -rf /var/lib/apt/lists/*\n")
-			}
-		}
-		b.WriteString("\n")
-	}
+	// Base image from OS mod
+	b.WriteString(fmt.Sprintf("FROM %s\n\n", osMod.DockerfileFrom))
 
 	// Run as root commands (in mod order)
 	for _, m := range mods {
@@ -94,8 +68,8 @@ func GenerateBase(modIDs []string) (string, error) {
 
 	// Switch to non-root user
 	b.WriteString("# Switch to non-root user\n")
-	b.WriteString("USER ubuntu\n")
-	b.WriteString("WORKDIR /home/ubuntu\n\n")
+	b.WriteString("USER dev\n")
+	b.WriteString("WORKDIR /home/dev\n\n")
 
 	// Environment variables - set before run_as_user so mods can use each other's env vars
 	// (e.g., neovim needs homebrew's PATH to run `brew install`)
@@ -105,10 +79,10 @@ func GenerateBase(modIDs []string) (string, error) {
 	b.WriteString("# Ensure local binaries are in PATH\n")
 	if pathVal, hasPath := envVars["PATH"]; hasPath {
 		// Prepend our paths to the mod-specified PATH
-		b.WriteString(fmt.Sprintf("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:%s\"\n", pathVal))
+		b.WriteString(fmt.Sprintf("ENV PATH=\"/home/dev/.local/bin:/usr/local/bin:%s\"\n", pathVal))
 		delete(envVars, "PATH") // Don't emit again below
 	} else {
-		b.WriteString("ENV PATH=\"/home/ubuntu/.local/bin:/usr/local/bin:$PATH\"\n")
+		b.WriteString("ENV PATH=\"/home/dev/.local/bin:/usr/local/bin:$PATH\"\n")
 	}
 
 	if len(envVars) > 0 {
@@ -188,40 +162,6 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	// Switch to root for installations
 	b.WriteString("USER root\n\n")
 
-	// Collect and dedupe apt repos
-	aptRepos := collectAptRepos(mods)
-	if len(aptRepos) > 0 {
-		// Need software-properties-common for apt-add-repository (may already be in base)
-		b.WriteString("# Ensure software-properties-common is available for apt-add-repository\n")
-		b.WriteString("RUN apt-get update && apt-get install -y software-properties-common && rm -rf /var/lib/apt/lists/*\n\n")
-
-		b.WriteString("# Add APT repositories\n")
-		b.WriteString("RUN ")
-		for i, repo := range aptRepos {
-			if i > 0 {
-				b.WriteString(" && \\\n    ")
-			}
-			b.WriteString(fmt.Sprintf("apt-add-repository %s", repo))
-		}
-		b.WriteString("\n\n")
-	}
-
-	// Collect and dedupe apt packages
-	aptPackages := collectAptPackages(mods)
-	if len(aptPackages) > 0 {
-		b.WriteString("# Install packages\n")
-		b.WriteString("RUN apt-get update && apt-get install -y \\\n")
-		for i, pkg := range aptPackages {
-			b.WriteString(fmt.Sprintf("    %s", pkg))
-			if i < len(aptPackages)-1 {
-				b.WriteString(" \\\n")
-			} else {
-				b.WriteString(" \\\n    && rm -rf /var/lib/apt/lists/*\n")
-			}
-		}
-		b.WriteString("\n")
-	}
-
 	// Run as root commands (in mod order)
 	for _, m := range mods {
 		if m.RunAsRoot != "" {
@@ -235,8 +175,8 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 
 	// Switch back to non-root user
 	b.WriteString("# Switch back to non-root user\n")
-	b.WriteString("USER ubuntu\n")
-	b.WriteString("WORKDIR /home/ubuntu\n\n")
+	b.WriteString("USER dev\n")
+	b.WriteString("WORKDIR /home/dev\n\n")
 
 	// Environment variables - set before run_as_user so mods can use each other's env vars
 	envVars := collectEnvVars(mods)
@@ -270,36 +210,6 @@ func GenerateProject(modIDs []string, baseModIDs []string) (string, error) {
 	b.WriteString("WORKDIR /workspace\n")
 
 	return b.String(), nil
-}
-
-// collectAptRepos gathers unique apt repos from all mods
-func collectAptRepos(mods []*mod.Mod) []string {
-	seen := make(map[string]bool)
-	var result []string
-	for _, m := range mods {
-		for _, repo := range m.AptRepos {
-			if !seen[repo] {
-				seen[repo] = true
-				result = append(result, repo)
-			}
-		}
-	}
-	return result
-}
-
-// collectAptPackages gathers unique apt packages from all mods
-func collectAptPackages(mods []*mod.Mod) []string {
-	seen := make(map[string]bool)
-	var result []string
-	for _, m := range mods {
-		for _, pkg := range m.AptPackages {
-			if !seen[pkg] {
-				seen[pkg] = true
-				result = append(result, pkg)
-			}
-		}
-	}
-	return result
 }
 
 // collectEnvVars gathers environment variables, later mods override earlier

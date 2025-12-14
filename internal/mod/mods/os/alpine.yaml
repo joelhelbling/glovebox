@@ -1,0 +1,30 @@
+name: alpine
+description: Alpine Linux base image (lightweight, musl-based)
+category: os
+dockerfile_from: alpine:3.20
+provides:
+  - base
+
+run_as_root: |
+  # Install core packages
+  apk add --no-cache \
+    curl \
+    wget \
+    git \
+    build-base \
+    unzip \
+    ca-certificates \
+    gnupg \
+    sudo \
+    jq \
+    libffi-dev \
+    yaml-dev \
+    bash \
+    shadow
+
+  # Create the dev user
+  adduser -D -s /bin/bash -u 1000 dev
+  echo "dev ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/dev
+  chmod 0440 /etc/sudoers.d/dev
+  mkdir -p /home/dev/.local/bin
+  chown -R dev:dev /home/dev

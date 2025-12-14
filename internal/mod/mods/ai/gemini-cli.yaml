@@ -3,6 +3,8 @@ description: Google's Gemini CLI assistant
 category: ai
 requires:
   - tools/homebrew
+provides:
+  - gemini-cli
 
 run_as_user: |
   brew install gemini-cli

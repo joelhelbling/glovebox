@@ -3,6 +3,8 @@ description: Node.js JavaScript runtime (LTS)
 category: language
 requires:
   - tools/mise
+provides:
+  - nodejs
 
 run_as_user: |
   mise use -g node@latest

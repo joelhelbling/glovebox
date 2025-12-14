@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/docker"
+	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/joelhelbling/glovebox/internal/ui"
 	"github.com/spf13/cobra"
@@ -87,6 +87,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 		containerStatus = "new"
 	}
 
+	// Determine OS from profile
+	osName := getOSFromProfile(absPath)
+
 	// Get passthrough env vars for banner (only relevant for new containers)
 	var passthroughVars []string
 	if !containerExists {
@@ -110,6 +113,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	banner := ui.NewBanner()
 	banner.Print(ui.BannerInfo{
 		Workspace:       collapsePath(absPath),
+		OS:              osName,
 		Image:           imageName,
 		Container:       containerName,
 		ContainerStatus: containerStatus,
@@ -144,7 +148,39 @@ func attachToContainer(name string) error {
 	docker.Stdin = os.Stdin
 	docker.Stdout = os.Stdout
 	docker.Stderr = os.Stderr
-	return docker.Run()
+	return ignoreExitError(docker.Run())
+}
+
+// ignoreExitError filters out normal container exit codes while preserving
+// Docker-specific errors that indicate real problems.
+//
+// Exit codes:
+//   - 125: Docker daemon error (failed to create/start container)
+//   - 126: Command cannot be invoked (permission denied)
+//   - 127: Command not found in container
+//   - 137: Container killed by SIGKILL (often OOM killer)
+//   - Other: Normal exit (including non-zero from last shell command)
+func ignoreExitError(err error) error {
+	if err == nil {
+		return nil
+	}
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		return err // Not an exit error, return as-is
+	}
+
+	code := exitErr.ExitCode()
+	switch {
+	case code >= 125 && code <= 127:
+		// Docker daemon errors - these are real failures
+		return fmt.Errorf("docker error (exit %d): %w", code, err)
+	case code == 137:
+		// SIGKILL - often OOM, worth mentioning
+		return fmt.Errorf("container was killed (exit 137, possibly out of memory)")
+	default:
+		// Normal container exit, ignore
+		return nil
+	}
 }
 
 // startContainer starts an existing stopped container
@@ -154,7 +190,7 @@ func startContainer(name, hostPath, workspacePath string) error {
 	docker.Stdin = os.Stdin
 	docker.Stdout = os.Stdout
 	docker.Stderr = os.Stderr
-	return docker.Run()
+	return ignoreExitError(docker.Run())
 }
 
 // createAndStartContainerWithEnv creates a new container with pre-computed env vars
@@ -182,56 +218,26 @@ func createAndStartContainerWithEnv(name, imageName, hostPath, workspacePath str
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	return ignoreExitError(cmd.Run())
 }
 
-// handlePostExit checks for container changes and offers to commit them
+// handlePostExit shows a summary of container changes (no prompt)
 func handlePostExit(containerName, imageName string) error {
 	// Get the diff
 	changes, err := getContainerDiff(containerName)
 	if err != nil {
-		// Don't fail on diff errors, just skip the commit prompt
-		return nil
-	}
-
-	if len(changes) == 0 {
+		// Don't fail on diff errors, just show simple exit
+		prompt := ui.NewPrompt()
+		prompt.PrintExitSummary(nil)
 		return nil
 	}
 
 	// Filter and summarize changes
 	summary := summarizeChanges(changes)
-	if len(summary) == 0 {
-		return nil
-	}
 
-	// Display the prompt
+	// Display the exit summary (with or without changes)
 	prompt := ui.NewPrompt()
-	prompt.PrintPostExitPrompt(summary)
-	fmt.Print(prompt.RenderChoicePrompt())
-
-	switch getPostExitChoice() {
-	case "yes":
-		if err := commitContainer(containerName, imageName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not commit changes: %v", err)))
-			return nil
-		}
-		fmt.Print(prompt.RenderCommitSuccess(imageName))
-
-		// Remove the container so next run starts fresh from the committed image
-		if err := deleteContainer(containerName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
-		}
-	case "erase":
-		if err := deleteContainer(containerName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
-			return nil
-		}
-		fmt.Print(prompt.RenderEraseSuccess())
-	default:
-		// "no" - leave container as-is
-		fmt.Print(prompt.RenderKeepSuccess())
-	}
-	fmt.Println()
+	prompt.PrintExitSummary(summary)
 
 	return nil
 }
@@ -254,14 +260,55 @@ func getContainerDiff(name string) ([]string, error) {
 	return changes, nil
 }
 
-// summarizeChanges filters and summarizes container changes for display
-func summarizeChanges(changes []string) []string {
-	// Group changes by top-level directory
-	dirCounts := make(map[string]int)
-	var importantChanges []string
+// noisePatterns contains substrings that indicate a noisy file
+var noisePatterns = []string{
+	// Shell history files
+	".bash_history",
+	".zsh_history",
+	".local/share/fish/fish_history",
+	".zsh_sessions",
+	".history",
+	// Cache directories
+	"/.cache/",
+	"/.cache",
+	// Temp files
+	"/tmp/",
+	"/var/tmp/",
+	// Lock files
+	".lock",
+	".pid",
+	// Editor swap/backup files
+	".swp",
+	".swo",
+	"~",
+	// Logs
+	"/var/log/",
+	// Package manager caches
+	"/var/cache/",
+	"/var/lib/apt/",
+	"/var/lib/dpkg/",
+	// Shell state
+	"/.local/share/recently-used",
+}
+
+// isNoiseFile returns true if a path is a noisy file (not considering parent dirs)
+func isNoiseFile(path string) bool {
+	for _, pattern := range noisePatterns {
+		if strings.Contains(path, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterNoise takes all changes and returns only meaningful ones.
+// It automatically filters parent directories if all their descendants are noise.
+func filterNoise(changes []string) []string {
+	// First pass: identify all noisy file paths
+	noisyPaths := make(map[string]bool)
+	allPaths := make(map[string]string) // path -> change type
 
 	for _, change := range changes {
-		// Parse change type and path (e.g., "A /home/ubuntu/.bashrc")
 		parts := strings.SplitN(change, " ", 2)
 		if len(parts) != 2 {
 			continue
@@ -269,79 +316,155 @@ func summarizeChanges(changes []string) []string {
 		changeType := parts[0]
 		path := parts[1]
 
-		// Skip workspace mount changes (those are on the host)
+		// Skip workspace (on host)
 		if strings.HasPrefix(path, "/workspace") {
 			continue
 		}
 
-		// Count by top-level meaningful directory
-		pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-		if len(pathParts) >= 2 {
-			topDir := "/" + pathParts[0] + "/" + pathParts[1]
-			dirCounts[topDir]++
-		}
+		allPaths[path] = changeType
 
-		// Highlight specific important changes
-		if strings.Contains(path, "/.linuxbrew/Cellar/") {
-			// Extract package name from Cellar path
-			cellarParts := strings.Split(path, "/Cellar/")
-			if len(cellarParts) > 1 {
-				pkgParts := strings.Split(cellarParts[1], "/")
-				if len(pkgParts) > 0 {
-					importantChanges = append(importantChanges, fmt.Sprintf("%s brew package: %s", changeType, pkgParts[0]))
-				}
+		if isNoiseFile(path) {
+			noisyPaths[path] = true
+		}
+	}
+
+	// Second pass: mark parent directories of noisy files as noisy too
+	for noisyPath := range noisyPaths {
+		// Mark all parent directories
+		parts := strings.Split(noisyPath, "/")
+		for i := 1; i < len(parts); i++ {
+			parentPath := strings.Join(parts[:i], "/")
+			if parentPath == "" {
+				continue
+			}
+			// If this parent is in allPaths and marked as Changed, it's just
+			// a parent dir being marked changed due to child changes
+			if changeType, exists := allPaths[parentPath]; exists && changeType == "C" {
+				noisyPaths[parentPath] = true
 			}
 		}
 	}
 
-	// Dedupe important changes
-	seen := make(map[string]bool)
+	// Third pass: collect non-noisy changes
 	var result []string
-	for _, c := range importantChanges {
-		if !seen[c] {
-			seen[c] = true
-			result = append(result, c)
+	for _, change := range changes {
+		parts := strings.SplitN(change, " ", 2)
+		if len(parts) != 2 {
+			continue
 		}
-	}
+		path := parts[1]
 
-	// Add summary counts for directories with many changes
-	for dir, count := range dirCounts {
-		if count > 5 {
-			result = append(result, fmt.Sprintf("%d changes in %s", count, dir))
+		if strings.HasPrefix(path, "/workspace") {
+			continue
 		}
-	}
 
-	// If we have too many specific changes, just show counts
-	if len(result) > 10 {
-		result = result[:10]
-		result = append(result, fmt.Sprintf("... and %d more changes", len(changes)-10))
-	}
-
-	// If no meaningful summary, show total count
-	if len(result) == 0 && len(changes) > 0 {
-		result = append(result, fmt.Sprintf("%d filesystem changes", len(changes)))
+		if !noisyPaths[path] {
+			result = append(result, change)
+		}
 	}
 
 	return result
 }
 
-// getPostExitChoice prompts user for what to do with container changes
-// Returns "yes", "no", or "erase"
-func getPostExitChoice() string {
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "no"
+// isNoiseChange returns true for changes that are expected every session
+// and don't represent meaningful modifications worth mentioning
+func isNoiseChange(path string) bool {
+	return isNoiseFile(path)
+}
+
+// summarizeChanges filters and summarizes container changes for display.
+// Returns nil if only noise changes were detected.
+func summarizeChanges(changes []string) []string {
+	// Filter out noise first
+	meaningful := filterNoise(changes)
+	if len(meaningful) == 0 {
+		return nil
 	}
-	response = strings.TrimSpace(strings.ToLower(response))
-	switch response {
-	case "y", "yes":
-		return "yes"
-	case "e", "erase":
-		return "erase"
-	default:
-		return "no"
+
+	var brewPackages []string
+	var configFiles []string
+	var otherChanges []string
+
+	for _, change := range meaningful {
+		parts := strings.SplitN(change, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		changeType := parts[0]
+		path := parts[1]
+
+		// Categorize the change
+		switch {
+		case strings.Contains(path, "/.linuxbrew/Cellar/"):
+			// Homebrew package
+			cellarParts := strings.Split(path, "/Cellar/")
+			if len(cellarParts) > 1 {
+				pkgParts := strings.Split(cellarParts[1], "/")
+				if len(pkgParts) > 0 {
+					brewPackages = append(brewPackages, pkgParts[0])
+				}
+			}
+		case strings.Contains(path, "/home/dev/.") || strings.Contains(path, "/root/."):
+			// Dotfile/config file
+			pathParts := strings.Split(path, "/")
+			if len(pathParts) > 0 {
+				filename := pathParts[len(pathParts)-1]
+				if changeType == "A" {
+					configFiles = append(configFiles, "added "+filename)
+				} else if changeType == "C" {
+					configFiles = append(configFiles, "modified "+filename)
+				}
+			}
+		default:
+			// Other meaningful change
+			if changeType == "A" {
+				otherChanges = append(otherChanges, "added "+path)
+			} else if changeType == "C" {
+				otherChanges = append(otherChanges, "modified "+path)
+			} else if changeType == "D" {
+				otherChanges = append(otherChanges, "deleted "+path)
+			}
+		}
 	}
+
+	var result []string
+
+	// Dedupe and add brew packages
+	seen := make(map[string]bool)
+	for _, pkg := range brewPackages {
+		if !seen[pkg] {
+			seen[pkg] = true
+			result = append(result, "brew install "+pkg)
+		}
+	}
+
+	// Dedupe and add config files (limit to 5)
+	seen = make(map[string]bool)
+	configCount := 0
+	for _, cf := range configFiles {
+		if !seen[cf] && configCount < 5 {
+			seen[cf] = true
+			result = append(result, cf)
+			configCount++
+		}
+	}
+	if len(configFiles) > 5 {
+		result = append(result, fmt.Sprintf("...and %d more config changes", len(configFiles)-5))
+	}
+
+	// Add other changes (limit to 3)
+	if len(otherChanges) > 0 {
+		limit := 3
+		if len(otherChanges) < limit {
+			limit = len(otherChanges)
+		}
+		result = append(result, otherChanges[:limit]...)
+		if len(otherChanges) > 3 {
+			result = append(result, fmt.Sprintf("...and %d more changes", len(otherChanges)-3))
+		}
+	}
+
+	return result
 }
 
 // commitContainer commits container changes to its image
@@ -354,6 +477,30 @@ func commitContainer(containerName, imageName string) error {
 func deleteContainer(containerName string) error {
 	cmd := exec.Command("docker", "container", "rm", containerName)
 	return cmd.Run()
+}
+
+// getOSFromProfile determines the OS name from the effective profile
+func getOSFromProfile(dir string) string {
+	// Try project profile first, then global
+	p, err := profile.LoadProject(dir)
+	if err != nil || p == nil {
+		p, err = profile.LoadGlobal()
+		if err != nil || p == nil {
+			return ""
+		}
+	}
+
+	// Look for OS mod in profile
+	for _, modID := range p.Mods {
+		m, err := mod.Load(modID)
+		if err != nil {
+			continue
+		}
+		if m.Category == "os" {
+			return m.Name
+		}
+	}
+	return ""
 }
 
 // determineImage figures out which Docker image to use for the given directory

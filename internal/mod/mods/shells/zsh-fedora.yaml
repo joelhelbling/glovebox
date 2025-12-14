@@ -1,0 +1,18 @@
+name: zsh-fedora
+description: Z shell with sensible defaults (Fedora)
+category: shell
+requires:
+  - fedora
+provides:
+  - zsh
+
+run_as_root: |
+  dnf install -y zsh && dnf clean all
+  usermod -s /usr/bin/zsh dev
+  mkdir -p /home/dev/.config/zsh
+  chown -R dev:dev /home/dev/.config/zsh
+
+env:
+  SHELL: /usr/bin/zsh
+
+user_shell: /usr/bin/zsh

@@ -3,6 +3,8 @@ description: Vim - the ubiquitous text editor
 category: editor
 requires:
   - tools/homebrew
+provides:
+  - vim
 
 run_as_user: |
   brew install vim
