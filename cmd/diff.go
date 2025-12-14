@@ -75,42 +75,50 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Categorized mode
+	// Use the shared filterNoise function
+	allChanges := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line != "" {
+			allChanges = append(allChanges, line)
+		}
+	}
+
+	meaningful := filterNoise(allChanges)
+	noiseCount := len(allChanges) - len(meaningful)
+
+	// Count workspace changes separately
+	workspaceCount := 0
+	for _, line := range allChanges {
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) == 2 && strings.HasPrefix(parts[1], "/workspace") {
+			workspaceCount++
+		}
+	}
+
+	// Categorize meaningful changes
 	var (
-		noise      []string
-		brew       []string
-		config     []string
-		system     []string
-		other      []string
-		workspace  []string
+		brew   []string
+		config []string
+		system []string
+		other  []string
 	)
 
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-
+	for _, line := range meaningful {
 		parts := strings.SplitN(line, " ", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		changeType := parts[0]
 		path := parts[1]
 
-		// Categorize
 		switch {
-		case strings.HasPrefix(path, "/workspace"):
-			workspace = append(workspace, fmt.Sprintf("%s %s", changeType, path))
-		case isNoiseChange(path):
-			noise = append(noise, fmt.Sprintf("%s %s", changeType, path))
 		case strings.Contains(path, "/.linuxbrew/"):
-			brew = append(brew, fmt.Sprintf("%s %s", changeType, path))
+			brew = append(brew, line)
 		case strings.Contains(path, "/home/dev/.") || strings.Contains(path, "/root/."):
-			config = append(config, fmt.Sprintf("%s %s", changeType, path))
+			config = append(config, line)
 		case strings.HasPrefix(path, "/var/") || strings.HasPrefix(path, "/etc/") || strings.HasPrefix(path, "/usr/"):
-			system = append(system, fmt.Sprintf("%s %s", changeType, path))
+			system = append(system, line)
 		default:
-			other = append(other, fmt.Sprintf("%s %s", changeType, path))
+			other = append(other, line)
 		}
 	}
 
@@ -126,7 +134,6 @@ func runDiff(cmd *cobra.Command, args []string) error {
 				fmt.Printf("  %s\n", item)
 			}
 		} else {
-			// Show first 10, summarize rest
 			limit := 10
 			if len(items) < limit {
 				limit = len(items)
@@ -141,7 +148,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Container: %s\n", containerName)
-	fmt.Printf("Total changes: %d\n", len(lines))
+	fmt.Printf("Total changes: %d\n", len(allChanges))
 
 	// Show meaningful changes first
 	printCategory("Homebrew", brew, false)
@@ -150,12 +157,12 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	printCategory("Other", other, true)
 
 	// Show filtered categories last
-	if len(noise) > 0 {
-		colorDim.Printf("\nFiltered as noise (%d): ", len(noise))
+	if noiseCount > 0 {
+		colorDim.Printf("\nFiltered as noise (%d): ", noiseCount)
 		colorDim.Printf("use --raw to see all\n")
 	}
-	if len(workspace) > 0 {
-		colorDim.Printf("Workspace mount (%d): ", len(workspace))
+	if workspaceCount > 0 {
+		colorDim.Printf("Workspace mount (%d): ", workspaceCount)
 		colorDim.Printf("changes are on host filesystem\n")
 	}
 

@@ -260,73 +260,39 @@ func getContainerDiff(name string) ([]string, error) {
 	return changes, nil
 }
 
-// isNoiseChange returns true for changes that are expected every session
-// and don't represent meaningful modifications worth mentioning
-func isNoiseChange(path string) bool {
-	// Exact paths that are always noise (parent dirs marked changed due to children)
-	noisePaths := []string{
-		"/home",
-		"/home/dev",
-		"/home/dev/.local",
-		"/home/dev/.local/share",
-		"/home/dev/.local/share/fish",
-		"/root",
-		"/root/.local",
-		"/root/.local/share",
-		"/root/.local/share/fish",
-		"/var",
-		"/var/log",
-		"/var/cache",
-	}
+// noisePatterns contains substrings that indicate a noisy file
+var noisePatterns = []string{
+	// Shell history files
+	".bash_history",
+	".zsh_history",
+	".local/share/fish/fish_history",
+	".zsh_sessions",
+	".history",
+	// Cache directories
+	"/.cache/",
+	"/.cache",
+	// Temp files
+	"/tmp/",
+	"/var/tmp/",
+	// Lock files
+	".lock",
+	".pid",
+	// Editor swap/backup files
+	".swp",
+	".swo",
+	"~",
+	// Logs
+	"/var/log/",
+	// Package manager caches
+	"/var/cache/",
+	"/var/lib/apt/",
+	"/var/lib/dpkg/",
+	// Shell state
+	"/.local/share/recently-used",
+}
 
-	for _, p := range noisePaths {
-		if path == p {
-			return true
-		}
-	}
-
-	noisePatterns := []string{
-		// Shell history files
-		".bash_history",
-		".zsh_history",
-		".local/share/fish/fish_history",
-		".history",
-		// Cache directories
-		"/.cache/",
-		"/.cache",
-		"/.local/share/recently-used",
-		// Temp files
-		"/tmp/",
-		"/var/tmp/",
-		// Lock files
-		".lock",
-		".pid",
-		// Editor swap/backup files
-		".swp",
-		".swo",
-		"~",
-		// Logs
-		"/var/log/",
-		// Package manager caches
-		"/var/cache/",
-		"/var/lib/apt/",
-		"/var/lib/dpkg/",
-	}
-
-	// Paths that end with these are noise (parent dirs of noisy files)
-	noiseSuffixes := []string{
-		"/.local",
-		"/.local/share",
-		"/.local/share/fish",
-		"/.local/share/zsh",
-	}
-
-	for _, suffix := range noiseSuffixes {
-		if strings.HasSuffix(path, suffix) {
-			return true
-		}
-	}
-
+// isNoiseFile returns true if a path is a noisy file (not considering parent dirs)
+func isNoiseFile(path string) bool {
 	for _, pattern := range noisePatterns {
 		if strings.Contains(path, pattern) {
 			return true
@@ -335,16 +301,14 @@ func isNoiseChange(path string) bool {
 	return false
 }
 
-// summarizeChanges filters and summarizes container changes for display.
-// Returns nil if only noise changes were detected.
-func summarizeChanges(changes []string) []string {
-	var brewPackages []string
-	var configFiles []string
-	var otherChanges []string
-	meaningfulCount := 0
+// filterNoise takes all changes and returns only meaningful ones.
+// It automatically filters parent directories if all their descendants are noise.
+func filterNoise(changes []string) []string {
+	// First pass: identify all noisy file paths
+	noisyPaths := make(map[string]bool)
+	allPaths := make(map[string]string) // path -> change type
 
 	for _, change := range changes {
-		// Parse change type and path (e.g., "A /home/dev/.bashrc")
 		parts := strings.SplitN(change, " ", 2)
 		if len(parts) != 2 {
 			continue
@@ -352,17 +316,82 @@ func summarizeChanges(changes []string) []string {
 		changeType := parts[0]
 		path := parts[1]
 
-		// Skip workspace mount changes (those are on the host)
+		// Skip workspace (on host)
 		if strings.HasPrefix(path, "/workspace") {
 			continue
 		}
 
-		// Skip noise
-		if isNoiseChange(path) {
+		allPaths[path] = changeType
+
+		if isNoiseFile(path) {
+			noisyPaths[path] = true
+		}
+	}
+
+	// Second pass: mark parent directories of noisy files as noisy too
+	for noisyPath := range noisyPaths {
+		// Mark all parent directories
+		parts := strings.Split(noisyPath, "/")
+		for i := 1; i < len(parts); i++ {
+			parentPath := strings.Join(parts[:i], "/")
+			if parentPath == "" {
+				continue
+			}
+			// If this parent is in allPaths and marked as Changed, it's just
+			// a parent dir being marked changed due to child changes
+			if changeType, exists := allPaths[parentPath]; exists && changeType == "C" {
+				noisyPaths[parentPath] = true
+			}
+		}
+	}
+
+	// Third pass: collect non-noisy changes
+	var result []string
+	for _, change := range changes {
+		parts := strings.SplitN(change, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		path := parts[1]
+
+		if strings.HasPrefix(path, "/workspace") {
 			continue
 		}
 
-		meaningfulCount++
+		if !noisyPaths[path] {
+			result = append(result, change)
+		}
+	}
+
+	return result
+}
+
+// isNoiseChange returns true for changes that are expected every session
+// and don't represent meaningful modifications worth mentioning
+func isNoiseChange(path string) bool {
+	return isNoiseFile(path)
+}
+
+// summarizeChanges filters and summarizes container changes for display.
+// Returns nil if only noise changes were detected.
+func summarizeChanges(changes []string) []string {
+	// Filter out noise first
+	meaningful := filterNoise(changes)
+	if len(meaningful) == 0 {
+		return nil
+	}
+
+	var brewPackages []string
+	var configFiles []string
+	var otherChanges []string
+
+	for _, change := range meaningful {
+		parts := strings.SplitN(change, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		changeType := parts[0]
+		path := parts[1]
 
 		// Categorize the change
 		switch {
@@ -396,11 +425,6 @@ func summarizeChanges(changes []string) []string {
 				otherChanges = append(otherChanges, "deleted "+path)
 			}
 		}
-	}
-
-	// If no meaningful changes, return nil
-	if meaningfulCount == 0 {
-		return nil
 	}
 
 	var result []string
