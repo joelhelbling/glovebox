@@ -376,3 +376,7 @@ Features under consideration:
 - **SSH key forwarding** - Securely access your SSH keys for git operations
 - **Networking affordances** - Connect to host services (Ollama, LM Studio) and other containers
 - **GPU passthrough** - Access host GPU for local AI model inference
+
+## License
+
+[MIT](LICENSE)
