@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -222,53 +221,23 @@ func createAndStartContainerWithEnv(name, imageName, hostPath, workspacePath str
 	return ignoreExitError(cmd.Run())
 }
 
-// handlePostExit checks for container changes and offers to commit them
+// handlePostExit shows a summary of container changes (no prompt)
 func handlePostExit(containerName, imageName string) error {
 	// Get the diff
 	changes, err := getContainerDiff(containerName)
 	if err != nil {
-		// Don't fail on diff errors, just skip the commit prompt
-		return nil
-	}
-
-	if len(changes) == 0 {
+		// Don't fail on diff errors, just show simple exit
+		prompt := ui.NewPrompt()
+		prompt.PrintExitSummary(nil)
 		return nil
 	}
 
 	// Filter and summarize changes
 	summary := summarizeChanges(changes)
-	if len(summary) == 0 {
-		return nil
-	}
 
-	// Display the prompt
+	// Display the exit summary (with or without changes)
 	prompt := ui.NewPrompt()
-	prompt.PrintPostExitPrompt(summary)
-	fmt.Print(prompt.RenderChoicePrompt())
-
-	switch getPostExitChoice() {
-	case "yes":
-		if err := commitContainer(containerName, imageName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not commit changes: %v", err)))
-			return nil
-		}
-		fmt.Print(prompt.RenderCommitSuccess(imageName))
-
-		// Remove the container so next run starts fresh from the committed image
-		if err := deleteContainer(containerName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
-		}
-	case "erase":
-		if err := deleteContainer(containerName); err != nil {
-			fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
-			return nil
-		}
-		fmt.Print(prompt.RenderEraseSuccess())
-	default:
-		// "no" - leave container as-is
-		fmt.Print(prompt.RenderKeepSuccess())
-	}
-	fmt.Println()
+	prompt.PrintExitSummary(summary)
 
 	return nil
 }
@@ -291,14 +260,48 @@ func getContainerDiff(name string) ([]string, error) {
 	return changes, nil
 }
 
-// summarizeChanges filters and summarizes container changes for display
+// isNoiseChange returns true for changes that are expected every session
+// and don't represent meaningful modifications worth mentioning
+func isNoiseChange(path string) bool {
+	noisePatterns := []string{
+		// Shell history files
+		".bash_history",
+		".zsh_history",
+		".local/share/fish/fish_history",
+		".history",
+		// Cache directories
+		"/.cache/",
+		"/.local/share/recently-used",
+		// Temp files
+		"/tmp/",
+		"/var/tmp/",
+		// Lock files
+		".lock",
+		".pid",
+		// Editor swap/backup files
+		".swp",
+		".swo",
+		"~",
+	}
+
+	for _, pattern := range noisePatterns {
+		if strings.Contains(path, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// summarizeChanges filters and summarizes container changes for display.
+// Returns nil if only noise changes were detected.
 func summarizeChanges(changes []string) []string {
-	// Group changes by top-level directory
-	dirCounts := make(map[string]int)
-	var importantChanges []string
+	var brewPackages []string
+	var configFiles []string
+	var otherChanges []string
+	meaningfulCount := 0
 
 	for _, change := range changes {
-		// Parse change type and path (e.g., "A /home/ubuntu/.bashrc")
+		// Parse change type and path (e.g., "A /home/dev/.bashrc")
 		parts := strings.SplitN(change, " ", 2)
 		if len(parts) != 2 {
 			continue
@@ -311,74 +314,90 @@ func summarizeChanges(changes []string) []string {
 			continue
 		}
 
-		// Count by top-level meaningful directory
-		pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-		if len(pathParts) >= 2 {
-			topDir := "/" + pathParts[0] + "/" + pathParts[1]
-			dirCounts[topDir]++
+		// Skip noise
+		if isNoiseChange(path) {
+			continue
 		}
 
-		// Highlight specific important changes
-		if strings.Contains(path, "/.linuxbrew/Cellar/") {
-			// Extract package name from Cellar path
+		meaningfulCount++
+
+		// Categorize the change
+		switch {
+		case strings.Contains(path, "/.linuxbrew/Cellar/"):
+			// Homebrew package
 			cellarParts := strings.Split(path, "/Cellar/")
 			if len(cellarParts) > 1 {
 				pkgParts := strings.Split(cellarParts[1], "/")
 				if len(pkgParts) > 0 {
-					importantChanges = append(importantChanges, fmt.Sprintf("%s brew package: %s", changeType, pkgParts[0]))
+					brewPackages = append(brewPackages, pkgParts[0])
 				}
+			}
+		case strings.Contains(path, "/home/dev/.") || strings.Contains(path, "/root/."):
+			// Dotfile/config file
+			pathParts := strings.Split(path, "/")
+			if len(pathParts) > 0 {
+				filename := pathParts[len(pathParts)-1]
+				if changeType == "A" {
+					configFiles = append(configFiles, "added "+filename)
+				} else if changeType == "C" {
+					configFiles = append(configFiles, "modified "+filename)
+				}
+			}
+		default:
+			// Other meaningful change
+			if changeType == "A" {
+				otherChanges = append(otherChanges, "added "+path)
+			} else if changeType == "C" {
+				otherChanges = append(otherChanges, "modified "+path)
+			} else if changeType == "D" {
+				otherChanges = append(otherChanges, "deleted "+path)
 			}
 		}
 	}
 
-	// Dedupe important changes
-	seen := make(map[string]bool)
+	// If no meaningful changes, return nil
+	if meaningfulCount == 0 {
+		return nil
+	}
+
 	var result []string
-	for _, c := range importantChanges {
-		if !seen[c] {
-			seen[c] = true
-			result = append(result, c)
+
+	// Dedupe and add brew packages
+	seen := make(map[string]bool)
+	for _, pkg := range brewPackages {
+		if !seen[pkg] {
+			seen[pkg] = true
+			result = append(result, "brew install "+pkg)
 		}
 	}
 
-	// Add summary counts for directories with many changes
-	for dir, count := range dirCounts {
-		if count > 5 {
-			result = append(result, fmt.Sprintf("%d changes in %s", count, dir))
+	// Dedupe and add config files (limit to 5)
+	seen = make(map[string]bool)
+	configCount := 0
+	for _, cf := range configFiles {
+		if !seen[cf] && configCount < 5 {
+			seen[cf] = true
+			result = append(result, cf)
+			configCount++
 		}
 	}
-
-	// If we have too many specific changes, just show counts
-	if len(result) > 10 {
-		result = result[:10]
-		result = append(result, fmt.Sprintf("... and %d more changes", len(changes)-10))
+	if len(configFiles) > 5 {
+		result = append(result, fmt.Sprintf("...and %d more config changes", len(configFiles)-5))
 	}
 
-	// If no meaningful summary, show total count
-	if len(result) == 0 && len(changes) > 0 {
-		result = append(result, fmt.Sprintf("%d filesystem changes", len(changes)))
+	// Add other changes (limit to 3)
+	if len(otherChanges) > 0 {
+		limit := 3
+		if len(otherChanges) < limit {
+			limit = len(otherChanges)
+		}
+		result = append(result, otherChanges[:limit]...)
+		if len(otherChanges) > 3 {
+			result = append(result, fmt.Sprintf("...and %d more changes", len(otherChanges)-3))
+		}
 	}
 
 	return result
-}
-
-// getPostExitChoice prompts user for what to do with container changes
-// Returns "yes", "no", or "erase"
-func getPostExitChoice() string {
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "no"
-	}
-	response = strings.TrimSpace(strings.ToLower(response))
-	switch response {
-	case "y", "yes":
-		return "yes"
-	case "e", "erase":
-		return "erase"
-	default:
-		return "no"
-	}
 }
 
 // commitContainer commits container changes to its image
