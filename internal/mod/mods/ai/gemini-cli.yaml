@@ -2,9 +2,9 @@ name: gemini-cli
 description: Google's Gemini CLI assistant
 category: ai
 requires:
-  - tools/homebrew
+  - languages/nodejs
 provides:
   - gemini-cli
 
 run_as_user: |
-  brew install gemini-cli
+  npm install -g @google/gemini-cli

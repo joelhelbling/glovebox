@@ -1,0 +1,13 @@
+name: emacs-ubuntu
+description: Emacs - the extensible, customizable, self-documenting real-time display editor (Ubuntu)
+category: editor
+requires:
+  - ubuntu
+provides:
+  - emacs
+
+run_as_root: |
+  apt-get update && apt-get install -y emacs && rm -rf /var/lib/apt/lists/*
+
+env:
+  EDITOR: emacs

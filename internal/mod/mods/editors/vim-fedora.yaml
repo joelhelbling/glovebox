@@ -1,0 +1,13 @@
+name: vim-fedora
+description: Vim - the ubiquitous text editor (Fedora)
+category: editor
+requires:
+  - fedora
+provides:
+  - vim
+
+run_as_root: |
+  dnf install -y vim && dnf clean all
+
+env:
+  EDITOR: vim

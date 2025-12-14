@@ -9,11 +9,11 @@ import (
 
 // ModInfo represents a mod for display
 type ModInfo struct {
-	Name        string   // just the mod name without category prefix
-	Description string   // human-readable description
-	Provides    []string // what this mod provides (for display)
-	RequiresOS  string   // OS required by this mod (empty if OS-agnostic)
-	Error       bool     // true if there was an error loading this mod
+	Name         string   // just the mod name without category prefix (base name for OS variants)
+	Description  string   // human-readable description (consolidated, without OS suffix)
+	Provides     []string // what this mod provides (for display)
+	SupportedOSs []string // OS variants available for this mod (empty if OS-agnostic)
+	Error        bool     // true if there was an error loading this mod
 }
 
 // ModCategory represents a category of mods
@@ -101,9 +101,14 @@ func (m *ModList) Render(categories []ModCategory) string {
 				if mod.Description != "" {
 					content += "  " + descStyle.Render(mod.Description)
 				}
-				// Add OS requirement indicator if present
-				if mod.RequiresOS != "" {
-					content += " " + descStyle.Render("["+mod.RequiresOS+"]")
+				// Add supported OS indicator if present
+				if len(mod.SupportedOSs) > 0 {
+					// Capitalize OS names for display
+					osNames := make([]string, len(mod.SupportedOSs))
+					for i, os := range mod.SupportedOSs {
+						osNames[i] = strings.ToUpper(os[:1]) + os[1:]
+					}
+					content += " " + descStyle.Render("(for "+strings.Join(osNames, ", ")+")")
 				}
 				line(content)
 			}

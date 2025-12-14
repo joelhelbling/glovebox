@@ -2,9 +2,9 @@ name: opencode
 description: OpenCode AI coding assistant
 category: ai
 requires:
-  - tools/homebrew
+  - base
 provides:
   - opencode
 
 run_as_user: |
-  brew install opencode
+  curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash

@@ -1,0 +1,13 @@
+name: emacs-fedora
+description: Emacs - the extensible, customizable, self-documenting real-time display editor (Fedora)
+category: editor
+requires:
+  - fedora
+provides:
+  - emacs
+
+run_as_root: |
+  dnf install -y emacs && dnf clean all
+
+env:
+  EDITOR: emacs

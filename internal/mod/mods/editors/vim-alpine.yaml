@@ -1,0 +1,13 @@
+name: vim-alpine
+description: Vim - the ubiquitous text editor (Alpine)
+category: editor
+requires:
+  - alpine
+provides:
+  - vim
+
+run_as_root: |
+  apk add --no-cache vim
+
+env:
+  EDITOR: vim

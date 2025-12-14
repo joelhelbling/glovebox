@@ -203,43 +203,39 @@ func TestListAll(t *testing.T) {
 
 func TestLoadMultiple(t *testing.T) {
 	t.Run("load single mod with dependencies", func(t *testing.T) {
-		// mise requires homebrew which requires base (provided by os/ubuntu)
+		// mise requires base (provided by os/ubuntu)
 		mods, err := LoadMultiple([]string{"os/ubuntu", "tools/mise"})
 		if err != nil {
 			t.Fatalf("LoadMultiple() error = %v", err)
 		}
 
-		// Should have at least 3 mods: ubuntu, homebrew, mise
-		if len(mods) < 3 {
-			t.Errorf("expected at least 3 mods (ubuntu, homebrew, mise), got %d", len(mods))
+		// Should have at least 2 mods: ubuntu, mise
+		if len(mods) < 2 {
+			t.Errorf("expected at least 2 mods (ubuntu, mise), got %d", len(mods))
 		}
 
-		// Verify dependency order: ubuntu should come before homebrew, homebrew before mise
+		// Verify dependency order: ubuntu should come before mise
 		names := make([]string, len(mods))
 		for i, m := range mods {
 			names[i] = m.Name
 		}
 
 		ubuntuIdx := indexOf(names, "ubuntu")
-		homebrewIdx := indexOf(names, "homebrew")
 		miseIdx := indexOf(names, "mise")
 
-		if ubuntuIdx == -1 || homebrewIdx == -1 || miseIdx == -1 {
-			t.Errorf("expected ubuntu, homebrew, mise in results, got %v", names)
+		if ubuntuIdx == -1 || miseIdx == -1 {
+			t.Errorf("expected ubuntu, mise in results, got %v", names)
 			return
 		}
 
-		if ubuntuIdx > homebrewIdx {
-			t.Error("ubuntu should come before homebrew")
-		}
-		if homebrewIdx > miseIdx {
-			t.Error("homebrew should come before mise")
+		if ubuntuIdx > miseIdx {
+			t.Error("ubuntu should come before mise")
 		}
 	})
 
 	t.Run("load multiple mods with shared dependencies", func(t *testing.T) {
-		// Both neovim and mise require homebrew
-		mods, err := LoadMultiple([]string{"os/ubuntu", "editors/neovim", "tools/mise"})
+		// Both neovim-ubuntu and mise require base (ubuntu provides base)
+		mods, err := LoadMultiple([]string{"os/ubuntu", "editors/neovim-ubuntu", "tools/mise"})
 		if err != nil {
 			t.Fatalf("LoadMultiple() error = %v", err)
 		}
@@ -250,11 +246,7 @@ func TestLoadMultiple(t *testing.T) {
 			counts[m.Name]++
 		}
 
-		// Homebrew should only appear once (deduped)
-		if counts["homebrew"] != 1 {
-			t.Errorf("homebrew should appear exactly once, got %d", counts["homebrew"])
-		}
-		// Ubuntu should only appear once
+		// Ubuntu should only appear once (deduped)
 		if counts["ubuntu"] != 1 {
 			t.Errorf("ubuntu should appear exactly once, got %d", counts["ubuntu"])
 		}

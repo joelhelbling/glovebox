@@ -1,0 +1,10 @@
+name: tmux-fedora
+description: Terminal multiplexer (Fedora)
+category: tool
+requires:
+  - fedora
+provides:
+  - tmux
+
+run_as_root: |
+  dnf install -y tmux && dnf clean all

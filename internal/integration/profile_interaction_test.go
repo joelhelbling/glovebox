@@ -330,37 +330,34 @@ func TestModDependencyResolutionWithExclusions(t *testing.T) {
 // TestTransitiveDependenciesExcluded verifies that transitive dependencies
 // of base mods are also excluded from project builds.
 func TestTransitiveDependenciesExcluded(t *testing.T) {
-	// If base has os/ubuntu and mise (which requires homebrew which requires base),
-	// then a project adding neovim (which also requires homebrew)
-	// should not re-include homebrew or ubuntu
-	baseMods := []string{"os/ubuntu", "tools/mise"} // This brings in homebrew transitively
-	projectMods := []string{"editors/neovim"}
+	// If base has os/ubuntu and mise (which requires base),
+	// then a project adding neovim-ubuntu (which also requires ubuntu)
+	// should not re-include ubuntu
+	baseMods := []string{"os/ubuntu", "tools/mise"}
+	projectMods := []string{"editors/neovim-ubuntu"}
 
 	mods, err := mod.LoadMultipleExcluding(projectMods, baseMods)
 	if err != nil {
 		t.Fatalf("LoadMultipleExcluding() error: %v", err)
 	}
 
-	// Should only have neovim (not ubuntu, not homebrew)
+	// Should only have neovim-ubuntu (not ubuntu)
 	for _, m := range mods {
 		if m.Name == "ubuntu" {
 			t.Error("ubuntu should be excluded (transitive dependency of base mods)")
 		}
-		if m.Name == "homebrew" {
-			t.Error("homebrew should be excluded (transitive dependency of base mods)")
-		}
 	}
 
-	// Neovim should be included
+	// neovim-ubuntu should be included
 	found := false
 	for _, m := range mods {
-		if m.Name == "neovim" {
+		if m.Name == "neovim-ubuntu" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("expected neovim to be included in project mods")
+		t.Error("expected neovim-ubuntu to be included in project mods")
 	}
 }
 

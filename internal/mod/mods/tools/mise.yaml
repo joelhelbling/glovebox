@@ -2,12 +2,12 @@ name: mise
 description: Polyglot runtime version manager (replaces asdf, nvm, rbenv, etc.)
 category: tool
 requires:
-  - tools/homebrew
+  - base
 provides:
   - mise
 
 run_as_user: |
-  brew install mise
+  curl https://mise.run | sh
 
   # Configure Mise for bash (if bashrc exists)
   if [ -f ~/.bashrc ]; then

@@ -244,13 +244,24 @@ func runModList(cmd *cobra.Command, args []string) error {
 		return categoryNames[i] < categoryNames[j]
 	})
 
-	// Build UI categories
+	// Build UI categories, consolidating OS variants
 	var categories []ui.ModCategory
 	for _, categoryName := range categoryNames {
 		modIDs := modsByCategory[categoryName]
 		sort.Strings(modIDs)
 
-		category := ui.ModCategory{Name: categoryName}
+		// Group mods by base name (strip OS suffix)
+		// Key: base name, Value: list of OS variants and mod info
+		type modGroup struct {
+			baseName     string
+			description  string
+			provides     []string
+			supportedOSs []string
+			hasError     bool
+		}
+		groups := make(map[string]*modGroup)
+		groupOrder := []string{} // preserve order
+
 		for _, id := range modIDs {
 			// Extract just the mod name (after the category prefix, if any)
 			modName := id
@@ -261,10 +272,11 @@ func runModList(cmd *cobra.Command, args []string) error {
 
 			m, err := mod.Load(id)
 			if err != nil {
-				category.Mods = append(category.Mods, ui.ModInfo{
-					Name:  modName,
-					Error: true,
-				})
+				// For errors, just add as-is
+				if _, exists := groups[modName]; !exists {
+					groups[modName] = &modGroup{baseName: modName, hasError: true}
+					groupOrder = append(groupOrder, modName)
+				}
 				continue
 			}
 
@@ -282,11 +294,66 @@ func runModList(cmd *cobra.Command, args []string) error {
 				}
 			}
 
+			// Determine base name by stripping OS suffix
+			baseName := modName
+			if requiresOS != "" {
+				suffix := "-" + requiresOS
+				if strings.HasSuffix(modName, suffix) {
+					baseName = strings.TrimSuffix(modName, suffix)
+				}
+			}
+
+			// Get or create group
+			group, exists := groups[baseName]
+			if !exists {
+				group = &modGroup{baseName: baseName}
+				groups[baseName] = group
+				groupOrder = append(groupOrder, baseName)
+			}
+
+			// Add OS to supported list if this is an OS-specific variant
+			if requiresOS != "" {
+				group.supportedOSs = append(group.supportedOSs, requiresOS)
+			}
+
+			// Use the first non-empty description (strip OS suffix from it)
+			if group.description == "" && m.Description != "" {
+				desc := m.Description
+				// Strip OS suffix from description like "(Ubuntu)" or "(Fedora)"
+				for _, osName := range mod.KnownOSNames {
+					// Try various patterns: "(Ubuntu)", " (Ubuntu)", "- Ubuntu"
+					patterns := []string{
+						" (" + strings.Title(osName) + ")",
+						"(" + strings.Title(osName) + ")",
+						" - " + strings.Title(osName),
+					}
+					for _, pattern := range patterns {
+						desc = strings.TrimSuffix(desc, pattern)
+					}
+				}
+				group.description = desc
+			}
+
+			// Use provides from first variant
+			if len(group.provides) == 0 {
+				group.provides = m.Provides
+			}
+		}
+
+		// Build category with consolidated mods
+		category := ui.ModCategory{Name: categoryName}
+		for _, baseName := range groupOrder {
+			group := groups[baseName]
+
+			// Sort supported OSes alphabetically for consistent display
+			sort.Strings(group.supportedOSs)
+
 			category.Mods = append(category.Mods, ui.ModInfo{
-				Name:        modName,
-				Description: m.Description,
-				Provides:    m.Provides,
-				RequiresOS:  requiresOS,
+				Name:         group.baseName,
+				Description:  group.description,
+				Provides:     group.provides,
+				SupportedOSs: group.supportedOSs,
+				Error:        group.hasError,
 			})
 		}
 		categories = append(categories, category)

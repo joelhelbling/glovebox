@@ -1,0 +1,13 @@
+name: helix-alpine
+description: Helix - a post-modern modal text editor (Alpine)
+category: editor
+requires:
+  - alpine
+provides:
+  - helix
+
+run_as_root: |
+  apk add --no-cache helix --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community
+
+env:
+  EDITOR: hx

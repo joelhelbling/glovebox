@@ -1,0 +1,13 @@
+name: neovim-fedora
+description: Neovim - hyperextensible Vim-based text editor (Fedora)
+category: editor
+requires:
+  - fedora
+provides:
+  - neovim
+
+run_as_root: |
+  dnf install -y neovim && dnf clean all
+
+env:
+  EDITOR: nvim

@@ -1,0 +1,13 @@
+name: vim-ubuntu
+description: Vim - the ubiquitous text editor (Ubuntu)
+category: editor
+requires:
+  - ubuntu
+provides:
+  - vim
+
+run_as_root: |
+  apt-get update && apt-get install -y vim && rm -rf /var/lib/apt/lists/*
+
+env:
+  EDITOR: vim

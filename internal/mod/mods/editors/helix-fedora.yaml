@@ -1,0 +1,13 @@
+name: helix-fedora
+description: Helix - a post-modern modal text editor (Fedora)
+category: editor
+requires:
+  - fedora
+provides:
+  - helix
+
+run_as_root: |
+  dnf install -y helix && dnf clean all
+
+env:
+  EDITOR: hx

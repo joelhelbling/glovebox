@@ -1,0 +1,13 @@
+name: neovim-alpine
+description: Neovim - hyperextensible Vim-based text editor (Alpine)
+category: editor
+requires:
+  - alpine
+provides:
+  - neovim
+
+run_as_root: |
+  apk add --no-cache neovim
+
+env:
+  EDITOR: nvim

@@ -1,0 +1,10 @@
+name: tmux-alpine
+description: Terminal multiplexer (Alpine)
+category: tool
+requires:
+  - alpine
+provides:
+  - tmux
+
+run_as_root: |
+  apk add --no-cache tmux

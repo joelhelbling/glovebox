@@ -50,19 +50,14 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no profile found. Run 'glovebox init' first")
 	}
 
-	// Verify mod exists
-	requestedMod, err := mod.Load(modID)
-	if err != nil {
-		// Check if user might be trying to add an OS-specific mod without the suffix
-		suggestion := suggestModVariant(modID, p)
-		if suggestion != "" {
-			return fmt.Errorf("mod '%s' not found. Did you mean '%s'?", modID, suggestion)
-		}
-		return fmt.Errorf("mod '%s' not found. Run 'glovebox mod list' to see available mods", modID)
-	}
-
 	// Get the profile's OS
 	profileOS := getProfileOS(p)
+
+	// Try to resolve the mod ID, handling base names like "editors/vim" -> "editors/vim-ubuntu"
+	resolvedModID, requestedMod, err := resolveModID(modID, profileOS)
+	if err != nil {
+		return err
+	}
 
 	// Check if the mod is compatible with the profile's OS
 	if err := checkModOSCompatibility(requestedMod, profileOS); err != nil {
@@ -74,9 +69,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Add mod
-	if !p.AddMod(modID) {
-		fmt.Printf("Mod '%s' is already in your profile.\n", modID)
+	// Add mod (use the resolved ID)
+	if !p.AddMod(resolvedModID) {
+		fmt.Printf("Mod '%s' is already in your profile.\n", resolvedModID)
 		return nil
 	}
 
@@ -85,7 +80,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	colorGreen.Printf("✓ Added '%s' to profile\n", modID)
+	colorGreen.Printf("✓ Added '%s' to profile\n", resolvedModID)
 	fmt.Println("\nRun 'glovebox build' to regenerate your Dockerfile.")
 
 	return nil
@@ -121,6 +116,45 @@ func checkModOSCompatibility(m *mod.Mod, profileOS string) error {
 		}
 	}
 	return nil
+}
+
+// resolveModID attempts to resolve a mod ID, handling base names like "editors/vim" -> "editors/vim-ubuntu".
+// Returns the resolved mod ID, the loaded mod, and an error if resolution fails.
+func resolveModID(modID string, profileOS string) (string, *mod.Mod, error) {
+	// First, try to load the exact mod ID
+	m, err := mod.Load(modID)
+	if err == nil {
+		return modID, m, nil
+	}
+
+	// If not found and we have a profile OS, try with OS suffix
+	if profileOS != "" {
+		osVariantID := modID + "-" + profileOS
+		m, err = mod.Load(osVariantID)
+		if err == nil {
+			return osVariantID, m, nil
+		}
+	}
+
+	// Check if there are any OS variants available for this base name
+	availableOSs := []string{}
+	for _, osName := range mod.KnownOSNames {
+		candidate := modID + "-" + osName
+		if _, err := mod.Load(candidate); err == nil {
+			availableOSs = append(availableOSs, osName)
+		}
+	}
+
+	if len(availableOSs) > 0 {
+		if profileOS == "" {
+			return "", nil, fmt.Errorf("mod '%s' requires an OS-specific variant.\nAvailable for: %s\nAdd an OS mod to your profile first (e.g., 'glovebox add os/ubuntu')",
+				modID, strings.Join(availableOSs, ", "))
+		}
+		return "", nil, fmt.Errorf("mod '%s' is not available for '%s'.\nAvailable for: %s",
+			modID, profileOS, strings.Join(availableOSs, ", "))
+	}
+
+	return "", nil, fmt.Errorf("mod '%s' not found. Run 'glovebox mod list' to see available mods", modID)
 }
 
 // suggestModVariant suggests an alternative mod if the user requested one for a different OS.

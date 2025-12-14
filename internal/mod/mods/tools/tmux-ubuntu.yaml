@@ -1,0 +1,10 @@
+name: tmux-ubuntu
+description: Terminal multiplexer (Ubuntu)
+category: tool
+requires:
+  - ubuntu
+provides:
+  - tmux
+
+run_as_root: |
+  apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*

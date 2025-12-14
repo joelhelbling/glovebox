@@ -187,9 +187,9 @@ func TestGenerateProject(t *testing.T) {
 	})
 
 	t.Run("excludes base mods", func(t *testing.T) {
-		// mise requires homebrew which requires base
-		// If os/ubuntu and homebrew are in baseModIDs, only mise should be in output
-		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"os/ubuntu", "tools/homebrew"})
+		// mise requires base (provided by os/ubuntu)
+		// If os/ubuntu is in baseModIDs, only mise should be in output
+		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"os/ubuntu"})
 		if err != nil {
 			t.Fatalf("GenerateProject() error = %v", err)
 		}
@@ -201,7 +201,7 @@ func TestGenerateProject(t *testing.T) {
 	})
 
 	t.Run("switches to root then back to dev", func(t *testing.T) {
-		dockerfile, err := GenerateProject([]string{"editors/neovim"}, []string{"os/ubuntu", "tools/homebrew"})
+		dockerfile, err := GenerateProject([]string{"editors/neovim-ubuntu"}, []string{"os/ubuntu"})
 		if err != nil {
 			t.Fatalf("GenerateProject() error = %v", err)
 		}

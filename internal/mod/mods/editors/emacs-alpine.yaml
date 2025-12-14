@@ -1,0 +1,13 @@
+name: emacs-alpine
+description: Emacs - the extensible, customizable, self-documenting real-time display editor (Alpine)
+category: editor
+requires:
+  - alpine
+provides:
+  - emacs
+
+run_as_root: |
+  apk add --no-cache emacs
+
+env:
+  EDITOR: emacs

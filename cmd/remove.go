@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
 )
@@ -43,8 +44,12 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no profile found. Run 'glovebox init' first")
 	}
 
+	// Try to resolve the mod ID for removal
+	// First try exact match, then try with OS suffix
+	resolvedModID := resolveModIDForRemoval(modID, p)
+
 	// Remove mod
-	if !p.RemoveMod(modID) {
+	if !p.RemoveMod(resolvedModID) {
 		fmt.Printf("Mod '%s' is not in your profile.\n", modID)
 		return nil
 	}
@@ -54,8 +59,43 @@ func runRemove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving profile: %w", err)
 	}
 
-	colorGreen.Printf("✓ Removed '%s' from profile\n", modID)
+	colorGreen.Printf("✓ Removed '%s' from profile\n", resolvedModID)
 	fmt.Println("\nRun 'glovebox build' to regenerate your Dockerfile.")
 
 	return nil
+}
+
+// resolveModIDForRemoval finds the actual mod ID in the profile.
+// It first checks for an exact match, then tries OS-specific variants.
+func resolveModIDForRemoval(modID string, p *profile.Profile) string {
+	// Check if exact match exists in profile
+	for _, id := range p.Mods {
+		if id == modID {
+			return modID
+		}
+	}
+
+	// Try with OS suffix based on profile's OS
+	profileOS := getProfileOS(p)
+	if profileOS != "" {
+		osVariantID := modID + "-" + profileOS
+		for _, id := range p.Mods {
+			if id == osVariantID {
+				return osVariantID
+			}
+		}
+	}
+
+	// Try all known OS variants (in case profile has a different one)
+	for _, osName := range mod.KnownOSNames {
+		osVariantID := modID + "-" + osName
+		for _, id := range p.Mods {
+			if id == osVariantID {
+				return osVariantID
+			}
+		}
+	}
+
+	// Return original - will result in "not found" message
+	return modID
 }
