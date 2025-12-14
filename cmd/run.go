@@ -263,6 +263,22 @@ func getContainerDiff(name string) ([]string, error) {
 // isNoiseChange returns true for changes that are expected every session
 // and don't represent meaningful modifications worth mentioning
 func isNoiseChange(path string) bool {
+	// Exact paths that are always noise (parent dirs marked changed due to children)
+	noisePaths := []string{
+		"/home",
+		"/home/dev",
+		"/root",
+		"/var",
+		"/var/log",
+		"/var/cache",
+	}
+
+	for _, p := range noisePaths {
+		if path == p {
+			return true
+		}
+	}
+
 	noisePatterns := []string{
 		// Shell history files
 		".bash_history",
@@ -282,6 +298,12 @@ func isNoiseChange(path string) bool {
 		".swp",
 		".swo",
 		"~",
+		// Logs
+		"/var/log/",
+		// Package manager caches
+		"/var/cache/",
+		"/var/lib/apt/",
+		"/var/lib/dpkg/",
 	}
 
 	for _, pattern := range noisePatterns {
