@@ -115,6 +115,19 @@ func (m *ModList) Render(categories []ModCategory) string {
 		}
 	}
 
+	// Add tagline box
+	tagline := "First put the right tools in the box, then open the space alien artifact."
+	var taglineStyle lipgloss.Style
+	if m.term.HasColors() {
+		taglineStyle = m.term.NewStyle().Italic(true)
+		tagline = taglineStyle.Render(tagline)
+	}
+
+	line("")
+	line("╔═══════╗")
+	line("║ ✋ 🤚 ║  " + tagline)
+	line("╚═══════╝")
+
 	sb.WriteString("\n")
 	return sb.String()
 }
