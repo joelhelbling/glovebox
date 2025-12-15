@@ -1,0 +1,14 @@
+name: claude-code-alpine
+description: Anthropic's Claude Code CLI assistant (Alpine)
+category: ai
+requires:
+  - alpine
+  - bash
+provides:
+  - claude-code
+
+run_as_root: |
+  apk add --no-cache libstdc++ libgcc
+
+run_as_user: |
+  curl -fsSL https://claude.ai/install.sh | bash
