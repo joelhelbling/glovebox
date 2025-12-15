@@ -1,0 +1,10 @@
+name: native-build-fedora
+description: Build tools for compiling native extensions (Fedora)
+category: tool
+requires:
+  - fedora
+provides:
+  - native-build
+
+run_as_root: |
+  dnf group install -y "Development Tools" && dnf clean all

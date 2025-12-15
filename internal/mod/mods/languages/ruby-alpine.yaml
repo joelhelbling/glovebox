@@ -1,0 +1,15 @@
+name: ruby-alpine
+description: Ruby programming language (Alpine)
+category: language
+requires:
+  - alpine
+  - tools/mise
+  - native-build
+provides:
+  - ruby
+
+run_as_root: |
+  apk add --no-cache libffi-dev yaml-dev
+
+run_as_user: |
+  mise use -g ruby@latest

@@ -1,0 +1,10 @@
+name: native-build-ubuntu
+description: Build tools for compiling native extensions (Ubuntu)
+category: tool
+requires:
+  - ubuntu
+provides:
+  - native-build
+
+run_as_root: |
+  apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*

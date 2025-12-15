@@ -1,0 +1,15 @@
+name: ruby-fedora
+description: Ruby programming language (Fedora)
+category: language
+requires:
+  - fedora
+  - tools/mise
+  - native-build
+provides:
+  - ruby
+
+run_as_root: |
+  dnf install -y libffi-devel libyaml-devel && dnf clean all
+
+run_as_user: |
+  mise use -g ruby@latest

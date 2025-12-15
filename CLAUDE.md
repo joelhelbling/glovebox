@@ -89,7 +89,7 @@ Load priority: project-local `.glovebox/mods/` → user global `~/.glovebox/mods
 1. **Base image** (`glovebox:base`) - Built from `~/.glovebox/profile.yaml`, contains user's standard environment
 2. **Project images** - Built from `.glovebox/profile.yaml`, extend base with project-specific tools
 
-The generator (`internal/generator/generator.go`) collects apt repos, packages, run_as_root commands, run_as_user commands, and env vars from mods and outputs a Dockerfile.
+The generator (`internal/generator/generator.go`) collects run_as_root commands, run_as_user commands, and env vars from mods and outputs a Dockerfile.
 
 ### Container Persistence
 
@@ -103,26 +103,42 @@ Key functions in `cmd/run.go`:
 
 ## Adding New Mods
 
+Mods requiring OS-specific package installation need OS variants (e.g., `toolname-ubuntu.yaml`, `toolname-fedora.yaml`, `toolname-alpine.yaml`). Mods using homebrew or mise can remain OS-agnostic.
+
 Create a YAML file in `internal/mod/mods/<category>/<name>.yaml`:
+
+```yaml
+name: toolname-ubuntu
+description: Brief description (Ubuntu)
+category: tool
+requires:
+  - ubuntu
+provides:
+  - toolname
+
+run_as_root: |
+  apt-get update && apt-get install -y some-package && rm -rf /var/lib/apt/lists/*
+
+run_as_user: |
+  # Commands run as dev user
+
+env:
+  PATH: /some/path:$PATH
+```
+
+For OS-agnostic mods (using homebrew/mise):
 
 ```yaml
 name: toolname
 description: Brief description
 category: tool
 requires:
-  - base
-
-apt_packages:
-  - some-package
-
-run_as_root: |
-  # Commands run as root
+  - tools/homebrew
+provides:
+  - toolname
 
 run_as_user: |
-  # Commands run as ubuntu user
-
-env:
-  PATH: /some/path:$PATH
+  brew install toolname
 ```
 
 After adding, rebuild the binary to embed the new mod.

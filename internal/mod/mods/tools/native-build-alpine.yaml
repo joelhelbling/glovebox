@@ -1,0 +1,10 @@
+name: native-build-alpine
+description: Build tools for compiling native extensions (Alpine)
+category: tool
+requires:
+  - alpine
+provides:
+  - native-build
+
+run_as_root: |
+  apk add --no-cache build-base
