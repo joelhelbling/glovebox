@@ -3,7 +3,7 @@ description: Ruby programming language (Fedora)
 category: language
 requires:
   - fedora
-  - tools/mise
+  - mise
   - native-build
 provides:
   - ruby

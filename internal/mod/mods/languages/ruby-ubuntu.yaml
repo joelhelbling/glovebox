@@ -3,7 +3,7 @@ description: Ruby programming language (Ubuntu)
 category: language
 requires:
   - ubuntu
-  - tools/mise
+  - mise
   - native-build
 provides:
   - ruby

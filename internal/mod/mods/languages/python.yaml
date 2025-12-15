@@ -2,7 +2,7 @@ name: python
 description: Python programming language
 category: language
 requires:
-  - tools/mise
+  - mise
 provides:
   - python
 

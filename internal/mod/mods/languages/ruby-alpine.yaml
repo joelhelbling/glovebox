@@ -3,7 +3,7 @@ description: Ruby programming language (Alpine)
 category: language
 requires:
   - alpine
-  - tools/mise
+  - mise
   - native-build
 provides:
   - ruby
