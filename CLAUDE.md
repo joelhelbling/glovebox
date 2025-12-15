@@ -75,12 +75,15 @@ Glovebox is a Go CLI that generates and runs Docker containers for sandboxed dev
 
 ### Mod System
 
-Mods are YAML files embedded in the binary at `internal/mod/mods/`. They're organized by category:
-- `shells/` (bash, zsh, fish)
-- `editors/` (vim, neovim, helix, emacs)
-- `tools/` (mise, tmux, homebrew)
-- `languages/` (nodejs)
-- `ai/` (claude-code, gemini-cli, opencode)
+Mods are YAML files embedded in the binary at `internal/mod/mods/`. Categories:
+- `os/` - Base OS images (ubuntu, fedora, alpine)
+- `shells/` - Shell configurations
+- `editors/` - Text editors
+- `tools/` - Development tools
+- `languages/` - Programming language runtimes
+- `ai/` - AI coding assistants
+
+Some mods are OS-agnostic (use homebrew/mise), others have OS-specific variants (e.g., `zsh-ubuntu.yaml`, `zsh-fedora.yaml`). Run `glovebox mod list` to see all available mods.
 
 Load priority: project-local `.glovebox/mods/` → user global `~/.glovebox/mods/` → embedded
 
