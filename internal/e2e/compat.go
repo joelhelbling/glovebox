@@ -126,6 +126,8 @@ func ModsCompatibleWithOS(osName string) ([]string, error) {
 // would actually add to their profile (not just dependencies).
 // This filters out low-level infrastructure mods like "mise" that are only
 // dependencies of other mods.
+// It also excludes generic mods when an OS-specific variant exists (e.g., skip
+// ai/claude-code on Alpine if ai/claude-code-alpine exists).
 func LeafModsForOS(osName string) ([]string, error) {
 	compatible, err := ModsCompatibleWithOS(osName)
 	if err != nil {
@@ -151,6 +153,12 @@ func LeafModsForOS(osName string) ([]string, error) {
 		modByID[m.ID] = m
 	}
 
+	// Build a set of compatible mod IDs for quick lookup
+	compatibleSet := make(map[string]bool)
+	for _, id := range compatible {
+		compatibleSet[id] = true
+	}
+
 	// Filter to mods that aren't primarily used as dependencies
 	// (but include them if they're in user-facing categories)
 	userFacingCategories := map[string]bool{
@@ -163,6 +171,14 @@ func LeafModsForOS(osName string) ([]string, error) {
 	var result []string
 	for _, id := range compatible {
 		m := modByID[id]
+
+		// Skip generic mods if an OS-specific variant exists
+		// e.g., skip ai/claude-code on alpine if ai/claude-code-alpine exists
+		osSpecificID := id + "-" + osName
+		if compatibleSet[osSpecificID] {
+			continue // OS-specific variant exists, skip the generic one
+		}
+
 		// Include if it's a user-facing category
 		if userFacingCategories[m.Category] {
 			result = append(result, id)

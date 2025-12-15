@@ -1,0 +1,12 @@
+name: gemini-cli-alpine
+description: Google's Gemini CLI assistant (Alpine)
+category: ai
+requires:
+  - alpine
+  - nodejs
+provides:
+  - gemini-cli
+
+# On Alpine, nodejs is a system package so npm install -g requires root
+run_as_root: |
+  npm install -g @google/gemini-cli
