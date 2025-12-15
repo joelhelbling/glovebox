@@ -9,7 +9,7 @@ provides:
   - ruby
 
 run_as_root: |
-  apt-get update && apt-get install -y libffi-dev libyaml-dev && rm -rf /var/lib/apt/lists/*
+  apt-get update && apt-get install -y libffi-dev libyaml-dev zlib1g-dev perl && rm -rf /var/lib/apt/lists/*
 
 run_as_user: |
   mise use -g ruby@latest
