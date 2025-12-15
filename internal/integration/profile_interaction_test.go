@@ -203,7 +203,7 @@ func TestPassthroughEnvInDockerArgs(t *testing.T) {
 func TestBaseModsInBaseImage(t *testing.T) {
 	// Generate a base Dockerfile with specific mods
 	// Note: os/ubuntu provides "base" so homebrew's requirement is satisfied
-	baseMods := []string{"os/ubuntu", "shells/bash", "tools/homebrew"}
+	baseMods := []string{"os/ubuntu", "shells/bash", "tools/homebrew-ubuntu"}
 
 	dockerfile, err := generator.GenerateBase(baseMods)
 	if err != nil {
@@ -236,9 +236,9 @@ func TestBaseModsInBaseImage(t *testing.T) {
 //
 // Assumption #4: Mods in project but not in base are installed in project
 func TestProjectModsNotInBase(t *testing.T) {
-	// Base has: os/ubuntu (provides base), homebrew
-	// Project has: mise (which requires homebrew, but homebrew is already in base)
-	baseMods := []string{"os/ubuntu", "tools/homebrew"}
+	// Base has: os/ubuntu (provides base), homebrew-ubuntu (provides homebrew)
+	// Project has: mise (which requires base, already satisfied by os/ubuntu)
+	baseMods := []string{"os/ubuntu", "tools/homebrew-ubuntu"}
 	projectMods := []string{"tools/mise"}
 
 	dockerfile, err := generator.GenerateProject(projectMods, baseMods)
@@ -262,10 +262,10 @@ func TestProjectModsNotInBase(t *testing.T) {
 //
 // Assumption #5: Mods in both base and project are NOT installed in project
 func TestOverlappingModsExcludedFromProject(t *testing.T) {
-	// Base has: os/ubuntu (provides base), homebrew
-	// Project has: homebrew (duplicate), mise
-	baseMods := []string{"os/ubuntu", "tools/homebrew"}
-	projectMods := []string{"tools/homebrew", "tools/mise"}
+	// Base has: os/ubuntu (provides base), homebrew-ubuntu (provides homebrew)
+	// Project has: homebrew-ubuntu (duplicate), mise
+	baseMods := []string{"os/ubuntu", "tools/homebrew-ubuntu"}
+	projectMods := []string{"tools/homebrew-ubuntu", "tools/mise"}
 
 	dockerfile, err := generator.GenerateProject(projectMods, baseMods)
 	if err != nil {
@@ -293,9 +293,9 @@ func TestOverlappingModsExcludedFromProject(t *testing.T) {
 // TestModDependencyResolutionWithExclusions verifies that the mod loading
 // correctly excludes mods that are already satisfied by the base.
 func TestModDependencyResolutionWithExclusions(t *testing.T) {
-	// mise requires homebrew which requires base (provided by os/ubuntu)
-	// If os/ubuntu and homebrew are in baseModIDs, only mise should be loaded
-	baseMods := []string{"os/ubuntu", "tools/homebrew"}
+	// mise requires base (provided by os/ubuntu)
+	// If os/ubuntu and homebrew-ubuntu are in baseModIDs, only mise should be loaded
+	baseMods := []string{"os/ubuntu", "tools/homebrew-ubuntu"}
 	projectMods := []string{"tools/mise"}
 
 	mods, err := mod.LoadMultipleExcluding(projectMods, baseMods)
@@ -316,13 +316,13 @@ func TestModDependencyResolutionWithExclusions(t *testing.T) {
 		t.Errorf("expected mise, got %s", mods[0].Name)
 	}
 
-	// Verify ubuntu and homebrew are NOT included
+	// Verify ubuntu and homebrew-ubuntu are NOT included
 	for _, m := range mods {
 		if m.Name == "ubuntu" {
 			t.Error("ubuntu should be excluded (already in base image)")
 		}
-		if m.Name == "homebrew" {
-			t.Error("homebrew should be excluded (already in base image)")
+		if m.Name == "homebrew-ubuntu" {
+			t.Error("homebrew-ubuntu should be excluded (already in base image)")
 		}
 	}
 }
