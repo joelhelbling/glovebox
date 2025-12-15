@@ -7,4 +7,4 @@ provides:
   - native-build
 
 run_as_root: |
-  dnf group install -y "Development Tools" && dnf clean all
+  dnf group install -y development-tools && dnf clean all
