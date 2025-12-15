@@ -9,18 +9,12 @@ run_as_root: |
   # Install core packages
   dnf install -y \
     curl \
-    wget \
     git \
-    gcc \
-    gcc-c++ \
-    make \
     unzip \
     ca-certificates \
     gnupg2 \
     sudo \
     jq \
-    libffi-devel \
-    libyaml-devel \
     procps-ng \
     findutils \
     && dnf clean all

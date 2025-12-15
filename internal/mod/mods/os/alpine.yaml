@@ -9,16 +9,12 @@ run_as_root: |
   # Install core packages
   apk add --no-cache \
     curl \
-    wget \
     git \
-    build-base \
     unzip \
     ca-certificates \
     gnupg \
     sudo \
     jq \
-    libffi-dev \
-    yaml-dev \
     bash \
     shadow
 
