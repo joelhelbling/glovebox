@@ -1,7 +1,8 @@
-name: nodejs
-description: Node.js JavaScript runtime (LTS)
+name: nodejs-ubuntu
+description: Node.js JavaScript runtime (Ubuntu)
 category: language
 requires:
+  - ubuntu
   - mise
 provides:
   - nodejs

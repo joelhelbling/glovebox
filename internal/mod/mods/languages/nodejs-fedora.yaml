@@ -1,0 +1,11 @@
+name: nodejs-fedora
+description: Node.js JavaScript runtime (Fedora)
+category: language
+requires:
+  - fedora
+  - mise
+provides:
+  - nodejs
+
+run_as_user: |
+  mise use -g node@lts

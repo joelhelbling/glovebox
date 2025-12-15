@@ -2,7 +2,7 @@ name: gemini-cli
 description: Google's Gemini CLI assistant
 category: ai
 requires:
-  - languages/nodejs
+  - nodejs
 provides:
   - gemini-cli
 

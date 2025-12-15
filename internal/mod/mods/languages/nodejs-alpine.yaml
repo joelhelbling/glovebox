@@ -1,0 +1,10 @@
+name: nodejs-alpine
+description: Node.js JavaScript runtime (Alpine)
+category: language
+requires:
+  - alpine
+provides:
+  - nodejs
+
+run_as_root: |
+  apk add --no-cache nodejs npm
