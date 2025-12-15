@@ -7,4 +7,5 @@ provides:
   - opencode
 
 run_as_user: |
+  touch ~/.bashrc ~/.zshrc
   curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash

@@ -1,0 +1,10 @@
+name: python-alpine
+description: Python programming language (Alpine)
+category: language
+requires:
+  - alpine
+provides:
+  - python
+
+run_as_root: |
+  apk add --no-cache python3 py3-pip

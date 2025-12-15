@@ -1,0 +1,11 @@
+name: python-fedora
+description: Python programming language (Fedora)
+category: language
+requires:
+  - fedora
+  - mise
+provides:
+  - python
+
+run_as_user: |
+  mise use -g python@latest

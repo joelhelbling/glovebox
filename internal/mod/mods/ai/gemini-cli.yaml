@@ -6,5 +6,5 @@ requires:
 provides:
   - gemini-cli
 
-run_as_user: |
+run_as_root: |
   npm install -g @google/gemini-cli

@@ -25,5 +25,5 @@ run_as_root: |
   useradd -m -s /bin/bash -u 1000 dev
   echo "dev ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/dev
   chmod 0440 /etc/sudoers.d/dev
-  mkdir -p /home/dev/.local/bin
+  mkdir -p /home/dev/.local/bin /home/dev/.config
   chown -R dev:dev /home/dev

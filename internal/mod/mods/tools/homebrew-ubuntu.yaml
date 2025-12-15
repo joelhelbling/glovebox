@@ -1,8 +1,8 @@
-name: homebrew
-description: The Missing Package Manager for macOS (or Linux)
+name: homebrew-ubuntu
+description: The Missing Package Manager for macOS (or Linux) (Ubuntu)
 category: tool
 requires:
-  - base
+  - ubuntu
 provides:
   - homebrew
 

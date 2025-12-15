@@ -6,8 +6,10 @@ requires:
 provides:
   - mise
 
+env:
+  PATH: /home/dev/.local/share/mise/shims:/home/dev/.local/bin:$PATH
+
 run_as_user: |
-  mkdir -p ~/.config/mise ~/.local/share/mise
   curl https://mise.run | sh
 
   # Configure Mise for bash (if bashrc exists)

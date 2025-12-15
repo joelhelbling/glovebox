@@ -1,7 +1,8 @@
-name: python
-description: Python programming language
+name: python-ubuntu
+description: Python programming language (Ubuntu)
 category: language
 requires:
+  - ubuntu
   - mise
 provides:
   - python
