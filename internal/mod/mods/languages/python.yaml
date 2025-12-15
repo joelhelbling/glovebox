@@ -1,0 +1,10 @@
+name: python
+description: Python programming language
+category: language
+requires:
+  - tools/mise
+provides:
+  - python
+
+run_as_user: |
+  mise use -g python@latest
