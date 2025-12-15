@@ -7,4 +7,4 @@ provides:
   - nodejs
 
 run_as_user: |
-  mise use -g node@latest
+  mise use -g node@lts
