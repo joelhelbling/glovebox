@@ -6,6 +6,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NEVER skip GPG signing.** All commits must be signed. If GPG signing times out, alert the user to touch their 2FA key and retry the commit. Do not use `--no-gpg-sign` under any circumstances.
 
+## Branching Workflow
+
+**Always use feature branches.** Pushing directly to `main` triggers the full CI pipeline including lengthy mod build tests (~20-30 min). To avoid unnecessary CI runs:
+
+1. Create a feature branch for your work:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. Make commits on the feature branch and push to origin:
+   ```bash
+   git push -u origin feature/your-feature-name
+   ```
+
+3. Create a PR when ready for review. PRs only run fast unit tests.
+
+4. Merge to `main` only when the feature is complete. This triggers the full test suite.
+
+**Branch naming conventions:**
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation updates
+- `refactor/` - Code refactoring
+
 ## Development Commands
 
 Use `make help` to see all available targets. Key commands:

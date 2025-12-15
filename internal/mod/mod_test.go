@@ -76,15 +76,15 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name:    "load tool mod",
-			id:      "tools/homebrew",
+			id:      "tools/homebrew-ubuntu",
 			wantErr: false,
 			check: func(t *testing.T, m *Mod) {
-				if m.Name != "homebrew" {
-					t.Errorf("expected name 'homebrew', got %q", m.Name)
+				if m.Name != "homebrew-ubuntu" {
+					t.Errorf("expected name 'homebrew-ubuntu', got %q", m.Name)
 				}
-				// homebrew requires base
-				if len(m.Requires) == 0 || m.Requires[0] != "base" {
-					t.Errorf("expected homebrew to require 'base', got %v", m.Requires)
+				// homebrew-ubuntu requires ubuntu
+				if len(m.Requires) == 0 || m.Requires[0] != "ubuntu" {
+					t.Errorf("expected homebrew-ubuntu to require 'ubuntu', got %v", m.Requires)
 				}
 			},
 		},
@@ -262,20 +262,20 @@ func TestLoadMultiple(t *testing.T) {
 
 func TestLoadMultipleExcluding(t *testing.T) {
 	t.Run("exclude base mods", func(t *testing.T) {
-		// Load mise but exclude ubuntu and homebrew (as if they're in base image)
-		baseModIDs := []string{"os/ubuntu", "tools/homebrew"}
+		// Load mise but exclude ubuntu and homebrew-ubuntu (as if they're in base image)
+		baseModIDs := []string{"os/ubuntu", "tools/homebrew-ubuntu"}
 		mods, err := LoadMultipleExcluding([]string{"tools/mise"}, baseModIDs)
 		if err != nil {
 			t.Fatalf("LoadMultipleExcluding() error = %v", err)
 		}
 
-		// Should only have mise, not ubuntu or homebrew
+		// Should only have mise, not ubuntu or homebrew-ubuntu
 		for _, m := range mods {
 			if m.Name == "ubuntu" {
 				t.Error("ubuntu should be excluded")
 			}
-			if m.Name == "homebrew" {
-				t.Error("homebrew should be excluded")
+			if m.Name == "homebrew-ubuntu" {
+				t.Error("homebrew-ubuntu should be excluded")
 			}
 		}
 

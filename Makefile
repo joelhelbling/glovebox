@@ -1,4 +1,4 @@
-.PHONY: build install clean test fmt vet lint run help release version snapshot
+.PHONY: build install clean test test-mods test-mod fmt vet lint run help release version snapshot
 
 BINARY_NAME := glovebox
 BINARY_PATH := bin/$(BINARY_NAME)
@@ -35,6 +35,12 @@ clean: ## Remove build artifacts
 
 test: ## Run tests
 	$(GO) test ./...
+
+test-mods: build ## Test that all mods build successfully (slow)
+	$(GO) test -tags=e2e -v -timeout=60m ./internal/e2e/...
+
+test-mod: build ## Test a single mod (usage: make test-mod OS=ubuntu MOD=languages/nodejs)
+	TEST_OS=$(OS) TEST_MOD=$(MOD) $(GO) test -tags=e2e -v -timeout=10m -run TestSingleModBuild ./internal/e2e/...
 
 fmt: ## Format code
 	$(GO) fmt ./...

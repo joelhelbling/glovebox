@@ -131,8 +131,8 @@ func TestGenerateBase(t *testing.T) {
 	})
 
 	t.Run("includes dependency mods", func(t *testing.T) {
-		// homebrew requires base, which os/ubuntu provides
-		dockerfile, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew"})
+		// homebrew-ubuntu requires ubuntu, which os/ubuntu provides
+		dockerfile, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew-ubuntu"})
 		if err != nil {
 			t.Fatalf("GenerateBase() error = %v", err)
 		}
@@ -176,7 +176,7 @@ func TestGenerateBase(t *testing.T) {
 
 func TestGenerateProject(t *testing.T) {
 	t.Run("extends base image", func(t *testing.T) {
-		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"os/ubuntu", "tools/homebrew"})
+		dockerfile, err := GenerateProject([]string{"tools/mise"}, []string{"os/ubuntu", "tools/homebrew-ubuntu"})
 		if err != nil {
 			t.Fatalf("GenerateProject() error = %v", err)
 		}
@@ -264,7 +264,7 @@ func TestDockerfileStructure(t *testing.T) {
 
 func TestEnvVarsInDockerfile(t *testing.T) {
 	t.Run("homebrew sets PATH", func(t *testing.T) {
-		dockerfile, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew"})
+		dockerfile, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew-ubuntu"})
 		if err != nil {
 			t.Fatalf("GenerateBase() error = %v", err)
 		}
@@ -290,8 +290,8 @@ func TestOSModValidation(t *testing.T) {
 	})
 
 	t.Run("OS mod provides base for dependencies", func(t *testing.T) {
-		// homebrew requires base, os/ubuntu provides base
-		_, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew"})
+		// homebrew-ubuntu requires ubuntu, os/ubuntu provides ubuntu
+		_, err := GenerateBase([]string{"os/ubuntu", "tools/homebrew-ubuntu"})
 		if err != nil {
 			t.Errorf("expected os/ubuntu to satisfy base requirement: %v", err)
 		}
