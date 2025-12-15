@@ -9,7 +9,7 @@ provides:
   - ruby
 
 run_as_root: |
-  dnf install -y libffi-devel libyaml-devel && dnf clean all
+  dnf install -y libffi-devel libyaml-devel perl && dnf clean all
 
 run_as_user: |
   mise use -g ruby@latest
