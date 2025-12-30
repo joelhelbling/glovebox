@@ -1,0 +1,186 @@
+---
+// Prose component for consistent documentation styling
+---
+
+<div class="prose-docs">
+  <slot />
+</div>
+
+<style>
+  .prose-docs {
+    @apply text-base leading-relaxed;
+  }
+
+  .prose-docs :global(h2) {
+    @apply text-2xl font-medium mt-12 mb-4 text-ink;
+  }
+
+  .prose-docs :global(h3) {
+    @apply text-xl font-medium mt-8 mb-3 text-ink;
+  }
+
+  .prose-docs :global(h4) {
+    @apply text-lg font-medium mt-6 mb-2 text-ink;
+  }
+
+  .prose-docs :global(p) {
+    @apply mb-4 text-muted;
+  }
+
+  .prose-docs :global(ul),
+  .prose-docs :global(ol) {
+    @apply mb-4 pl-6 text-muted;
+  }
+
+  .prose-docs :global(ul) {
+    @apply list-disc;
+  }
+
+  .prose-docs :global(ol) {
+    @apply list-decimal;
+  }
+
+  .prose-docs :global(li) {
+    @apply mb-2;
+  }
+
+  .prose-docs :global(a) {
+    @apply text-teal hover:text-teal-dark underline underline-offset-2;
+  }
+
+  .prose-docs :global(code) {
+    @apply text-sm bg-black/5 px-1.5 py-0.5 rounded font-mono text-ink;
+  }
+
+  .prose-docs :global(pre) {
+    @apply bg-terminal-bg text-terminal-text font-mono text-sm
+           rounded p-4 shadow-code overflow-x-auto mb-4 relative;
+  }
+
+  .prose-docs :global(pre code) {
+    @apply bg-transparent p-0 text-terminal-text;
+  }
+
+  /* Code block wrapper for copy button positioning */
+  .prose-docs :global(.code-wrapper) {
+    @apply relative mb-4;
+  }
+
+  .prose-docs :global(.code-wrapper pre) {
+    @apply mb-0;
+  }
+
+  .prose-docs :global(.prose-copy-btn) {
+    @apply absolute top-2 right-2 z-10
+           w-8 h-8 flex items-center justify-center
+           rounded border border-white/20
+           bg-[#0f1115]/80 backdrop-blur-sm
+           text-white/60 hover:text-[#1d7a74] hover:border-[#1d7a74]/40
+           transition-all duration-200 cursor-pointer;
+  }
+
+  .prose-docs :global(.prose-copy-btn svg) {
+    @apply w-4 h-4 transition-transform duration-150;
+  }
+
+  .prose-docs :global(.prose-copy-btn:active svg) {
+    @apply scale-90;
+  }
+
+  .prose-docs :global(.prose-copy-btn .check-icon) {
+    @apply hidden;
+  }
+
+  .prose-docs :global(.prose-copy-btn.copied .copy-icon) {
+    @apply hidden;
+  }
+
+  .prose-docs :global(.prose-copy-btn.copied .check-icon) {
+    @apply block text-[#1d7a74];
+  }
+
+  .prose-docs :global(.prose-copy-btn.copied) {
+    @apply border-[#1d7a74]/40;
+  }
+
+  .prose-docs :global(table) {
+    @apply w-full mb-4 text-sm;
+  }
+
+  .prose-docs :global(thead) {
+    @apply bg-black/5;
+  }
+
+  .prose-docs :global(th) {
+    @apply px-4 py-2 text-left font-medium text-ink;
+  }
+
+  .prose-docs :global(td) {
+    @apply px-4 py-2 border-t border-muted/20 text-muted;
+  }
+
+  .prose-docs :global(blockquote) {
+    @apply border-l-4 border-teal pl-4 italic text-muted my-4;
+  }
+
+  .prose-docs :global(strong) {
+    @apply font-medium text-ink;
+  }
+</style>
+
+<script>
+  function initProseCopyButtons() {
+    document.querySelectorAll('.prose-docs pre').forEach(pre => {
+      // Skip if already wrapped
+      if (pre.parentElement?.classList.contains('code-wrapper')) return;
+
+      // Create wrapper
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-wrapper';
+
+      // Create copy button
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'prose-copy-btn';
+      btn.setAttribute('aria-label', 'Copy to clipboard');
+      btn.innerHTML = `
+        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+        </svg>
+        <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      `;
+
+      // Get code text
+      const code = pre.querySelector('code')?.textContent || pre.textContent || '';
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(code);
+          btn.classList.add('copied');
+          setTimeout(() => btn.classList.remove('copied'), 2000);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      });
+
+      // Wrap the pre element
+      pre.parentNode?.insertBefore(wrapper, pre);
+      wrapper.appendChild(btn);
+      wrapper.appendChild(pre);
+    });
+  }
+
+  // Run on DOMContentLoaded for static pages
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProseCopyButtons);
+  } else {
+    initProseCopyButtons();
+  }
+
+  // Also listen for Astro page transitions if used
+  document.addEventListener('astro:page-load', initProseCopyButtons);
+</script>

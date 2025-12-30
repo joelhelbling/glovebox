@@ -1,0 +1,75 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import Prose from '../../../components/Prose.astro';
+---
+
+<DocsLayout
+  title="Getting Started"
+  description="Installation and first run"
+  section="getting-started"
+  order={1}
+>
+  <Prose>
+    <p>This guide covers installation options and getting your first Glovebox environment running.</p>
+
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>Docker</li>
+      <li>Go 1.25+ (only if building from source)</li>
+    </ul>
+
+    <h2>Installation</h2>
+
+    <h3>Homebrew (macOS/Linux)</h3>
+    <pre><code>brew tap joelhelbling/glovebox
+brew install glovebox</code></pre>
+    <p>This installs the <code>glovebox</code> command and a <code>gb</code> shorthand alias.</p>
+
+    <h3>From Source</h3>
+    <pre><code>git clone https://github.com/joelhelbling/glovebox.git
+cd glovebox
+make build</code></pre>
+    <p>Then add the <code>bin</code> directory to your PATH, or install system-wide:</p>
+    <pre><code>make install  # installs to /usr/local/bin with gb symlink</code></pre>
+
+    <h2>First Run</h2>
+
+    <h3>1. Create Your Base Environment</h3>
+    <p>Run the interactive setup to choose your OS, shell, editor, and tools:</p>
+    <pre><code>glovebox init --base</code></pre>
+    <p>You'll be prompted to select:</p>
+    <ul>
+      <li><strong>Base OS:</strong> Ubuntu, Fedora, or Alpine</li>
+      <li><strong>Shell:</strong> bash, zsh, or fish</li>
+      <li><strong>Editor:</strong> vim, neovim, helix, or emacs</li>
+      <li><strong>Tools:</strong> mise (runtime manager), tmux, homebrew, etc.</li>
+      <li><strong>AI assistants:</strong> claude-code, gemini-cli, opencode</li>
+    </ul>
+    <p>Your selections are saved to <code>~/.glovebox/profile.yaml</code>.</p>
+
+    <h3>2. Build the Base Image</h3>
+    <pre><code>glovebox build --base</code></pre>
+    <p>This generates a Dockerfile and builds your <code>glovebox:base</code> image. This step takes a few minutes the first time, but you only need to do it once (or when you change your base profile).</p>
+
+    <h3>3. Run Glovebox</h3>
+    <p>Navigate to any project directory and start a sandboxed session:</p>
+    <pre><code>cd ~/projects/my-app
+glovebox run</code></pre>
+    <p>You're now inside a Docker container with your project mounted at <code>/workspace</code>. Your shell, editor, and tools are all available.</p>
+
+    <h3>4. Exit and Clean Up</h3>
+    <p>When you're done, just exit the shell:</p>
+    <pre><code>exit</code></pre>
+    <p>Glovebox will detect any filesystem changes and ask if you want to commit them to the image. See <a href="/glovebox/docs/architecture/">Architecture</a> for details on container persistence.</p>
+    <p>To remove all Glovebox containers and images:</p>
+    <pre><code>glovebox clean --all</code></pre>
+
+    <h2>Next Steps</h2>
+    <ul>
+      <li><a href="/glovebox/docs/commands/">Commands Reference</a> - Full command documentation</li>
+      <li><a href="/glovebox/docs/mods/">Composable Mods</a> - Available mods and how they work</li>
+      <li><a href="/glovebox/docs/workflows/">Workflows</a> - Common usage patterns</li>
+      <li><a href="/glovebox/docs/custom-mods/">Custom Mods</a> - Create your own mods</li>
+    </ul>
+  </Prose>
+</DocsLayout>

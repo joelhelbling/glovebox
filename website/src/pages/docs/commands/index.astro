@@ -1,0 +1,156 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import Prose from '../../../components/Prose.astro';
+---
+
+<DocsLayout
+  title="Commands"
+  description="The complete command reference"
+  section="commands"
+  order={2}
+>
+  <Prose>
+    <p>Glovebox provides a <code>gb</code> shorthand alias for all commands. Both <code>glovebox &lt;command&gt;</code> and <code>gb &lt;command&gt;</code> work identically.</p>
+
+    <h2>Quick Reference</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>glovebox init --base</code></td><td>Create base profile</td></tr>
+        <tr><td><code>glovebox init</code></td><td>Create project profile</td></tr>
+        <tr><td><code>glovebox build --base</code></td><td>Build base image</td></tr>
+        <tr><td><code>glovebox build</code></td><td>Build project image</td></tr>
+        <tr><td><code>glovebox run</code></td><td>Start sandboxed session</td></tr>
+        <tr><td><code>glovebox status</code></td><td>Show current state</td></tr>
+        <tr><td><code>glovebox add &lt;mod&gt;</code></td><td>Add a mod to profile</td></tr>
+        <tr><td><code>glovebox remove &lt;mod&gt;</code></td><td>Remove a mod from profile</td></tr>
+        <tr><td><code>glovebox commit</code></td><td>Persist container changes to image</td></tr>
+        <tr><td><code>glovebox reset</code></td><td>Discard container changes</td></tr>
+        <tr><td><code>glovebox diff</code></td><td>Show changes in container filesystem</td></tr>
+        <tr><td><code>glovebox clean</code></td><td>Remove project container/image</td></tr>
+        <tr><td><code>glovebox clone &lt;repo&gt;</code></td><td>Clone and start glovebox</td></tr>
+        <tr><td><code>glovebox mod list</code></td><td>List available mods</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Initialization</h2>
+
+    <h3><code>glovebox init --base</code></h3>
+    <p>Creates your base profile at <code>~/.glovebox/profile.yaml</code>. Launches an interactive wizard to select:</p>
+    <ul>
+      <li>Base OS (Ubuntu, Fedora, or Alpine)</li>
+      <li>Shell (bash, zsh, fish)</li>
+      <li>Editor (vim, neovim, helix, emacs)</li>
+      <li>Tools (mise, tmux, homebrew)</li>
+      <li>AI assistants (claude-code, gemini-cli, opencode)</li>
+    </ul>
+    <p>Only mods compatible with your selected OS are shown.</p>
+
+    <h3><code>glovebox init</code></h3>
+    <p>Creates a project-specific profile at <code>.glovebox/profile.yaml</code> in the current directory. Use this when a project needs tools beyond your base image.</p>
+
+    <h2>Building</h2>
+
+    <h3><code>glovebox build --base</code></h3>
+    <p>Builds the <code>glovebox:base</code> image from your global profile (<code>~/.glovebox/profile.yaml</code>). This is your standard development environment used across all projects.</p>
+
+    <h3><code>glovebox build</code></h3>
+    <p>Builds a project-specific image that extends <code>glovebox:base</code>. If no project profile exists, falls back to building/rebuilding the base image.</p>
+    <p>The project image is tagged as <code>glovebox:&lt;dirname&gt;-&lt;hash&gt;</code> where the hash is derived from the project path.</p>
+
+    <h3><code>glovebox build --generate-only</code></h3>
+    <p>Generates the Dockerfile without building the image. Useful for debugging or customization.</p>
+
+    <h2>Running</h2>
+
+    <h3><code>glovebox run [directory]</code></h3>
+    <p>Starts a Glovebox session. If no directory is specified, uses the current directory.</p>
+    <p>Behavior:</p>
+    <ul>
+      <li><strong>First run:</strong> Creates a new container from the appropriate image</li>
+      <li><strong>Subsequent runs:</strong> Starts the existing container, preserving any changes</li>
+      <li><strong>On exit:</strong> Shows a summary of filesystem changes (if any)</li>
+    </ul>
+    <p>The project directory is mounted at <code>/workspace</code> inside the container.</p>
+
+    <h3><code>glovebox clone &lt;repo&gt;</code></h3>
+    <p>Clones a git repository and immediately starts a Glovebox session in it.</p>
+    <p>Repository can be:</p>
+    <ul>
+      <li><code>user/repo</code> - GitHub shorthand (e.g., <code>rails/rails</code>)</li>
+      <li>Full URL - GitHub, GitLab, Bitbucket, or any git URL</li>
+    </ul>
+    <pre><code>glovebox clone rails/rails
+glovebox clone https://gitlab.com/user/repo.git</code></pre>
+
+    <h2>Profile Management</h2>
+
+    <h3><code>glovebox add &lt;mod&gt;</code></h3>
+    <p>Adds a mod to your profile. If a project profile exists (<code>.glovebox/profile.yaml</code>), adds to that; otherwise adds to the global profile.</p>
+    <p>For OS-specific mods, you can use the base name and Glovebox will resolve it automatically:</p>
+    <pre><code>glovebox add editors/vim       # Resolves to editors/vim-ubuntu on Ubuntu
+glovebox add ai/claude-code    # OS-agnostic, adds as-is</code></pre>
+
+    <h3><code>glovebox remove &lt;mod&gt;</code></h3>
+    <p>Removes a mod from your profile. Alias: <code>glovebox rm</code></p>
+    <p>Like <code>add</code>, you can use base names for OS-specific mods:</p>
+    <pre><code>glovebox remove editors/vim    # Removes editors/vim-ubuntu if installed
+glovebox rm shells/zsh         # Removes shells/zsh-ubuntu if installed</code></pre>
+
+    <h2>Status and Information</h2>
+
+    <h3><code>glovebox status</code></h3>
+    <p>Shows the current state of your Glovebox environment:</p>
+    <ul>
+      <li>Profile locations and contents</li>
+      <li>Image status (built, needs rebuild)</li>
+      <li>Container status (exists, running)</li>
+      <li>Mods in use</li>
+    </ul>
+
+    <h2>Container Management</h2>
+
+    <h3><code>glovebox commit</code></h3>
+    <p>Commits changes from the current project's container to its image. The container is removed and a fresh one will be created on the next <code>glovebox run</code>.</p>
+    <p>Use this after installing tools or making configuration changes you want to keep permanently.</p>
+
+    <h3><code>glovebox reset</code></h3>
+    <p>Discards all changes in the current project's container. The container is removed and a fresh one will be created from the original image on the next <code>glovebox run</code>.</p>
+    <p>Use this when you want to return to a clean state.</p>
+
+    <h3><code>glovebox diff</code></h3>
+    <p>Shows changes in the container's filesystem compared to the original image. Useful for seeing what's been modified before deciding whether to commit or reset.</p>
+
+    <h2>Cleanup</h2>
+
+    <h3><code>glovebox clean</code></h3>
+    <p>Removes the project container for the current directory. The image is preserved, so any committed changes remain.</p>
+
+    <h3><code>glovebox clean --image</code></h3>
+    <p>Removes both the project container and image. Any user-committed changes to the image will be lost. The base image is preserved.</p>
+
+    <h3><code>glovebox clean --all</code></h3>
+    <p>Removes all Glovebox containers and images, including the base image. Requires confirmation. Use this for a complete reset.</p>
+
+    <h2>Mod Commands</h2>
+
+    <h3><code>glovebox mod list</code></h3>
+    <p>Lists all available mods organized by category. Alias: <code>glovebox mod ls</code></p>
+    <p>Mods marked with <code>(for Alpine, Fedora, Ubuntu)</code> have OS-specific variants. When you <code>add</code> or <code>remove</code> these mods, Glovebox automatically resolves to the correct variant for your profile's OS.</p>
+
+    <h3><code>glovebox mod cat &lt;id&gt;</code></h3>
+    <p>Outputs a mod's raw YAML to stdout. Useful for understanding what a mod does or as a starting point for custom mods.</p>
+    <pre><code>glovebox mod cat editors/neovim > ~/.glovebox/mods/editors/neovim.yaml</code></pre>
+
+    <h3><code>glovebox mod create &lt;name&gt;</code></h3>
+    <p>Creates a new custom mod from a template. The mod is created in your project's <code>.glovebox/mods/</code> directory (or <code>~/.glovebox/mods/</code> with <code>--global</code>).</p>
+    <pre><code>glovebox mod create my-tool          # Creates .glovebox/mods/custom/my-tool.yaml
+glovebox mod create tools/my-tool    # Creates .glovebox/mods/tools/my-tool.yaml
+glovebox mod create my-tool --global # Creates ~/.glovebox/mods/custom/my-tool.yaml</code></pre>
+  </Prose>
+</DocsLayout>

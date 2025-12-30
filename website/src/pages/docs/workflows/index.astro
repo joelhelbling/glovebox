@@ -1,0 +1,159 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import Prose from '../../../components/Prose.astro';
+---
+
+<DocsLayout
+  title="Workflows"
+  description="Common usage patterns"
+  section="workflows"
+  order={6}
+>
+  <Prose>
+    <p>Common usage patterns and workflows for Glovebox.</p>
+
+    <h2>Daily Development</h2>
+
+    <h3>Starting a Session</h3>
+    <pre><code>cd ~/projects/my-app
+glovebox run</code></pre>
+    <p>You're dropped into a shell inside the container with your project at <code>/workspace</code>.</p>
+
+    <h3>Resuming Work</h3>
+    <p>Glovebox containers are persistent. When you <code>exit</code> and later run <code>glovebox run</code> again, you resume where you left off—including any tools you installed or configuration changes you made.</p>
+
+    <h3>Checking Status</h3>
+    <pre><code>glovebox status</code></pre>
+    <p>Shows your profile configuration, image state, and container state.</p>
+
+    <h2>Project-Specific Environments</h2>
+    <p>When a project needs tools beyond your base image:</p>
+
+    <h3>1. Create a Project Profile</h3>
+    <pre><code>cd ~/projects/special-project
+glovebox init</code></pre>
+    <p>This creates <code>.glovebox/profile.yaml</code> that extends your base image.</p>
+
+    <h3>2. Add Project-Specific Mods</h3>
+    <pre><code>glovebox add languages/nodejs
+glovebox add tools/tmux</code></pre>
+
+    <h3>3. Build and Run</h3>
+    <pre><code>glovebox build
+glovebox run</code></pre>
+    <p>The project image inherits everything from <code>glovebox:base</code> and adds the project-specific tools.</p>
+
+    <h2>Ad-Hoc Tool Installation</h2>
+    <p>You don't always know what tools you'll need. Glovebox lets you install things during a session and optionally persist them.</p>
+
+    <h3>Install During Session</h3>
+    <pre><code># Inside the container
+brew install jq
+brew install httpie</code></pre>
+
+    <h3>Persist Changes</h3>
+    <p>When you exit, Glovebox shows what changed:</p>
+    <pre><code>dev@glovebox /workspace (main)> exit
+
+  ┃ Session ended · container has uncommitted changes:
+  ┃
+  ┃   brew install jq
+  ┃   brew install httpie
+  ┃   ...and 35 more changes
+  ┃
+  ┃ To persist: glovebox commit
+  ┃ To discard: glovebox reset</code></pre>
+    <p>Run <code>glovebox commit</code> to bake these tools into your image permanently.</p>
+
+    <h2>Working with AI Coding Assistants</h2>
+    <p>Glovebox is ideal for running AI coding assistants that execute arbitrary code.</p>
+
+    <h3>Setup</h3>
+    <p>Add an AI assistant to your base profile (edit <code>~/.glovebox/profile.yaml</code> or run from a directory without a project profile):</p>
+    <pre><code>glovebox add ai/claude-code
+glovebox build --base</code></pre>
+
+    <h3>Configure API Keys</h3>
+    <p>Add your API key to passthrough in your profile (<code>~/.glovebox/profile.yaml</code>):</p>
+    <pre><code>passthrough_env:
+  - ANTHROPIC_API_KEY</code></pre>
+    <p>Rebuild isn't needed—this takes effect on next <code>glovebox run</code>.</p>
+
+    <h3>Use</h3>
+    <pre><code>cd ~/projects/my-app
+glovebox run
+
+# Inside container
+claude</code></pre>
+    <p>The AI assistant runs sandboxed. It can modify files in <code>/workspace</code> (your project), but cannot access your host system, SSH keys, or other projects.</p>
+
+    <h2>Testing Untrusted Code</h2>
+    <p>Glovebox provides a safe environment for:</p>
+    <ul>
+      <li>Evaluating npm packages before adding them to production</li>
+      <li>Running scripts from the internet</li>
+      <li>Testing code from unfamiliar sources</li>
+    </ul>
+
+    <h3>Example: Testing an npm Package</h3>
+    <pre><code>glovebox run
+
+# Inside container
+cd /workspace
+npm install sketchy-package
+node -e "require('sketchy-package')"</code></pre>
+    <p>If the package does something malicious, the damage is contained to the container. Your host is protected.</p>
+
+    <h3>Clean Slate Testing</h3>
+    <p>For maximum isolation, erase changes after testing:</p>
+    <pre><code>exit
+glovebox reset</code></pre>
+    <p>Next session starts fresh.</p>
+
+    <h2>Cloning and Running</h2>
+    <p>For quick exploration of a repository:</p>
+    <pre><code>glovebox clone https://github.com/user/repo</code></pre>
+    <p>This clones the repo and immediately starts a Glovebox session in it.</p>
+
+    <h2>Multiple Projects</h2>
+    <p>Each project gets its own container and (optionally) its own image:</p>
+    <pre><code>~/projects/
+├── app-a/           → container: glovebox-app-a-abc123
+├── app-b/           → container: glovebox-app-b-def456
+└── special-project/ → container: glovebox-special-project-789xyz
+                       image: glovebox:special-project-789xyz</code></pre>
+    <p>Projects without a <code>.glovebox/profile.yaml</code> use the base image directly. Projects with a profile get their own extended image.</p>
+
+    <h2>Clean Up</h2>
+
+    <h3>Single Project</h3>
+    <pre><code>cd ~/projects/my-app
+glovebox clean</code></pre>
+    <p>Removes the project's container and image (if any). Base image preserved.</p>
+
+    <h3>Full Reset</h3>
+    <pre><code>glovebox clean --all</code></pre>
+    <p>Removes all Glovebox containers and images, including base. Use this when:</p>
+    <ul>
+      <li>Something is broken beyond repair</li>
+      <li>You want to rebuild everything from scratch</li>
+      <li>You're done with Glovebox entirely</li>
+    </ul>
+    <p>After <code>clean --all</code>, you'll need to <code>glovebox build --base</code> again.</p>
+
+    <h2>Workflow Summary</h2>
+    <table>
+      <thead>
+        <tr><th>Scenario</th><th>Commands</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Daily use</td><td><code>gb run</code></td></tr>
+        <tr><td>Project needs extra tools</td><td><code>gb init</code>, <code>gb add &lt;mod&gt;</code>, <code>gb build</code>, <code>gb run</code></td></tr>
+        <tr><td>Install tool during session</td><td>Install normally, then <code>glovebox commit</code></td></tr>
+        <tr><td>Test untrusted code</td><td><code>gb run</code>, test, <code>exit</code>, <code>glovebox reset</code></td></tr>
+        <tr><td>Start fresh</td><td><code>gb clean</code> or <code>gb clean --all</code></td></tr>
+        <tr><td>Quick repo exploration</td><td><code>gb clone &lt;url&gt;</code></td></tr>
+      </tbody>
+    </table>
+  </Prose>
+</DocsLayout>

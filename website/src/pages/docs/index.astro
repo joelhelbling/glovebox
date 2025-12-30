@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const docsSections = [
+  { num: '01', title: 'Getting Started', slug: 'getting-started', description: 'Installation and first run' },
+  { num: '02', title: 'Commands', slug: 'commands', description: 'The complete command reference' },
+  { num: '03', title: 'Mods', slug: 'mods', description: 'Available mods and how they compose' },
+  { num: '04', title: 'Custom Mods', slug: 'custom-mods', description: 'Creating your own mods' },
+  { num: '05', title: 'Architecture', slug: 'architecture', description: 'How layered images and persistence work' },
+  { num: '06', title: 'Workflows', slug: 'workflows', description: 'Common usage patterns' },
+  { num: '07', title: 'Configuration', slug: 'configuration', description: 'Profiles and environment variables' },
+];
+---
+
+<BaseLayout title="Documentation" description="Everything you need to run the box.">
+  <section class="py-20 lg:py-24">
+    <div class="container-wide">
+      <header class="max-w-2xl mb-12">
+        <div class="flex items-start gap-8">
+          <div>
+            <h1 class="text-4xl lg:text-5xl font-medium mb-4">Operating Manual</h1>
+            <p class="text-xl text-muted">Everything you need to run the box.</p>
+          </div>
+          <img
+            src="/glovebox/docs-header.png"
+            alt="Operating Manual illustration"
+            class="hidden md:block w-[36rem] h-auto flex-shrink-0"
+          />
+        </div>
+      </header>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {docsSections.map(doc => (
+          <a
+            href={`/glovebox/docs/${doc.slug}/`}
+            class="group block bg-white rounded-lg p-6 shadow-card border-hairline border-muted/20 hover:shadow-lg hover:border-teal/30 transition-all"
+          >
+            <div class="section-number mb-2">{doc.num}.</div>
+            <h2 class="text-xl font-medium mb-2 group-hover:text-teal transition-colors">
+              {doc.title}
+            </h2>
+            <p class="text-muted">{doc.description}</p>
+            <div class="mt-4 flex items-center text-teal text-sm font-medium">
+              <span>Read more</span>
+              <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
