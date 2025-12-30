@@ -10,3 +10,9 @@ bin/
 
 # Generated documentation
 docs/developer_notes/help_screens.md
+
+# Website build artifacts
+website/node_modules/
+website/dist/
+website/.astro/
+website/nanobanana-output/

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none">
+  <!-- Placeholder for glovebox illustration -->
+  <rect width="400" height="300" fill="#faf8f5"/>
+
+  <!-- Technical diagram style glovebox -->
+  <rect x="50" y="60" width="300" height="180" rx="8" stroke="#6b6561" stroke-width="2" fill="white" stroke-dasharray="4 4"/>
+
+  <!-- Left glove port -->
+  <circle cx="130" cy="150" r="35" stroke="#1d7a74" stroke-width="2" fill="none"/>
+  <circle cx="130" cy="150" r="25" stroke="#1d7a74" stroke-width="1.5" fill="none" stroke-dasharray="2 2"/>
+
+  <!-- Right glove port -->
+  <circle cx="270" cy="150" r="35" stroke="#1d7a74" stroke-width="2" fill="none"/>
+  <circle cx="270" cy="150" r="25" stroke="#1d7a74" stroke-width="1.5" fill="none" stroke-dasharray="2 2"/>
+
+  <!-- Glove hints extending down -->
+  <path d="M130 185 L130 230 Q130 240 120 245 L110 250" stroke="#1d7a74" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M270 185 L270 230 Q270 240 280 245 L290 250" stroke="#1d7a74" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Sample inside -->
+  <rect x="175" y="130" width="50" height="40" rx="4" stroke="#6b6561" stroke-width="1.5" fill="none"/>
+  <text x="200" y="155" text-anchor="middle" font-family="monospace" font-size="10" fill="#6b6561">CODE</text>
+
+  <!-- Labels -->
+  <text x="200" y="50" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#6b6561">[ILLUSTRATION PLACEHOLDER]</text>
+</svg>

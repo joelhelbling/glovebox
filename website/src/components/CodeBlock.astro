@@ -1,0 +1,106 @@
+---
+interface Props {
+  code: string;
+  lang?: string;
+  showPrompt?: boolean;
+}
+
+const { code, lang = 'bash', showPrompt = true } = Astro.props;
+
+// Process lines to add prompt styling
+const lines = code.trim().split('\n');
+---
+
+<div class="code-block-wrapper">
+  <button type="button" class="copy-btn" aria-label="Copy to clipboard" data-code={code.trim()}>
+    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+    </svg>
+    <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </button>
+  <div class="code-block">
+    <pre><code class={`language-${lang}`}>{
+      lines.map((line, i) => (
+        showPrompt && lang === 'bash' && !line.startsWith('#') && !line.startsWith(' ') && line.trim()
+          ? <><span class="prompt">$ </span>{line}{i < lines.length - 1 ? '\n' : ''}</>
+          : <>{line}{i < lines.length - 1 ? '\n' : ''}</>
+      ))
+    }</code></pre>
+  </div>
+</div>
+
+<style>
+  .code-block-wrapper {
+    @apply relative;
+  }
+
+  .copy-btn {
+    @apply absolute top-2 right-2 z-10
+           w-8 h-8 flex items-center justify-center
+           rounded border border-terminal-text/20
+           bg-terminal-bg/80 backdrop-blur-sm
+           text-terminal-text/60 hover:text-teal hover:border-teal/40
+           transition-all duration-200 cursor-pointer;
+  }
+
+  .copy-btn svg {
+    @apply w-4 h-4 transition-transform duration-150;
+  }
+
+  .copy-btn:active svg {
+    @apply scale-90;
+  }
+
+  .copy-btn .check-icon {
+    @apply hidden text-teal;
+  }
+
+  .copy-btn.copied .copy-icon {
+    @apply hidden;
+  }
+
+  .copy-btn.copied .check-icon {
+    @apply block;
+  }
+
+  .copy-btn.copied {
+    @apply border-teal/40 text-teal;
+  }
+</style>
+
+<script>
+  function initCopyButtons() {
+    document.querySelectorAll('.copy-btn[data-code]').forEach(btn => {
+      // Skip if already initialized
+      if (btn.hasAttribute('data-initialized')) return;
+      btn.setAttribute('data-initialized', 'true');
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const code = btn.getAttribute('data-code');
+        if (code) {
+          try {
+            await navigator.clipboard.writeText(code);
+            btn.classList.add('copied');
+            setTimeout(() => btn.classList.remove('copied'), 2000);
+          } catch (err) {
+            console.error('Failed to copy:', err);
+          }
+        }
+      });
+    });
+  }
+
+  // Run on DOMContentLoaded for static pages
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCopyButtons);
+  } else {
+    initCopyButtons();
+  }
+
+  // Also listen for Astro page transitions if used
+  document.addEventListener('astro:page-load', initCopyButtons);
+</script>

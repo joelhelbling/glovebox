@@ -1,0 +1,127 @@
+@import '@fontsource/jost/400.css';
+@import '@fontsource/jost/500.css';
+@import '@fontsource/jost/600.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium tracking-tight;
+  }
+
+  /* Links */
+  a {
+    @apply text-teal hover:text-teal-dark transition-colors;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-teal/20;
+  }
+}
+
+@layer components {
+  /* Hairline rules */
+  .hairline {
+    @apply border-hairline border-muted/30;
+  }
+
+  .hairline-b {
+    @apply border-b border-hairline border-muted/30;
+  }
+
+  .hairline-t {
+    @apply border-t border-hairline border-muted/30;
+  }
+
+  /* Section number styling */
+  .section-number {
+    @apply text-teal font-mono text-sm tracking-wider;
+  }
+
+  /* Code block container */
+  .code-block {
+    @apply bg-terminal-bg text-terminal-text font-mono text-sm
+           rounded p-4 shadow-code overflow-x-auto;
+  }
+
+  .code-block .prompt {
+    @apply text-teal;
+  }
+
+  /* Feature cards */
+  .feature-card {
+    @apply bg-white rounded p-6 shadow-card
+           border-hairline border-muted/20
+           border-t-2 border-t-teal;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center
+           px-6 py-3 rounded font-medium
+           transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply btn bg-teal text-cream hover:bg-teal-dark;
+  }
+
+  .btn-secondary {
+    @apply btn border-2 border-teal text-teal
+           hover:bg-teal hover:text-cream;
+  }
+
+  /* Container */
+  .container-narrow {
+    @apply max-w-3xl mx-auto px-6;
+  }
+
+  .container-wide {
+    @apply max-w-6xl mx-auto px-6;
+  }
+
+  /* Grid background pattern - subtle engineering paper lines */
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(107, 101, 97, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(107, 101, 97, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Docs sidebar link */
+  .docs-link {
+    @apply block py-2 px-3 rounded text-muted hover:text-ink
+           hover:bg-black/5 transition-colors;
+  }
+
+  .docs-link.active {
+    @apply text-teal bg-teal/10;
+  }
+}
+
+/* Syntax highlighting for code blocks */
+.code-block .comment {
+  @apply text-muted;
+}
+
+.code-block .string {
+  @apply text-[#a5d6a7];
+}
+
+.code-block .keyword {
+  @apply text-[#ce93d8];
+}

@@ -1,0 +1,173 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import Prose from '../../../components/Prose.astro';
+---
+
+<DocsLayout
+  title="Mods"
+  description="Available mods and how they compose"
+  section="mods"
+  order={3}
+>
+  <Prose>
+    <p>Glovebox uses a mod-based system to compose your development environment. Each mod is a YAML file that defines packages, commands, and configuration to install.</p>
+
+    <h2>Available Mods</h2>
+
+    <h3>Operating Systems (<code>os/</code>)</h3>
+    <p>Choose one as your base. This determines which package manager and OS-specific mods are available.</p>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>os/ubuntu</code></td><td>Ubuntu base image with core dependencies</td></tr>
+        <tr><td><code>os/fedora</code></td><td>Fedora base image with core dependencies</td></tr>
+        <tr><td><code>os/alpine</code></td><td>Alpine Linux base image (lightweight, musl-based)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Shells (<code>shells/</code>)</h3>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th><th>OS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>shells/bash</code></td><td>Bash shell (default, minimal configuration)</td><td>Any</td></tr>
+        <tr><td><code>shells/zsh</code></td><td>Z shell with sensible defaults</td><td>Alpine, Fedora, Ubuntu</td></tr>
+        <tr><td><code>shells/fish</code></td><td>Fish shell - the friendly interactive shell</td><td>Alpine, Fedora, Ubuntu</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Editors (<code>editors/</code>)</h3>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th><th>OS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>editors/vim</code></td><td>Vim - the ubiquitous text editor</td><td>Alpine, Fedora, Ubuntu</td></tr>
+        <tr><td><code>editors/neovim</code></td><td>Neovim - hyperextensible Vim-based text editor</td><td>Alpine, Fedora, Ubuntu</td></tr>
+        <tr><td><code>editors/helix</code></td><td>Helix - a post-modern modal text editor</td><td>Alpine, Fedora, Ubuntu</td></tr>
+        <tr><td><code>editors/emacs</code></td><td>Emacs - the extensible text editor</td><td>Alpine, Fedora, Ubuntu</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Tools (<code>tools/</code>)</h3>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th><th>OS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>tools/homebrew</code></td><td>The Missing Package Manager for macOS (or Linux)</td><td>Any</td></tr>
+        <tr><td><code>tools/mise</code></td><td>Polyglot runtime version manager</td><td>Any</td></tr>
+        <tr><td><code>tools/tmux</code></td><td>Terminal multiplexer</td><td>Alpine, Fedora, Ubuntu</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Languages (<code>languages/</code>)</h3>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>languages/nodejs</code></td><td>Node.js JavaScript runtime (LTS)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>AI Assistants (<code>ai/</code>)</h3>
+    <table>
+      <thead>
+        <tr><th>Mod</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>ai/claude-code</code></td><td>Anthropic's Claude Code CLI assistant</td></tr>
+        <tr><td><code>ai/gemini-cli</code></td><td>Google's Gemini CLI assistant</td></tr>
+        <tr><td><code>ai/opencode</code></td><td>OpenCode AI coding assistant</td></tr>
+      </tbody>
+    </table>
+
+    <h2>OS-Specific Mods</h2>
+    <p>Many mods have OS-specific variants that use native package managers (apt, dnf, apk) for lighter-weight installations.</p>
+
+    <h3>Automatic Resolution</h3>
+    <p>When adding mods, Glovebox automatically resolves base names to the correct OS-specific variant:</p>
+    <pre><code># If your profile uses Ubuntu:
+glovebox add editors/vim
+# ✓ Added 'editors/vim-ubuntu' to profile</code></pre>
+    <p>The same works for removal:</p>
+    <pre><code>glovebox remove editors/vim
+# ✓ Removed 'editors/vim-ubuntu' from profile</code></pre>
+    <p>Your profile stores the full mod name (e.g., <code>editors/vim-ubuntu</code>) so you can always see exactly what's installed.</p>
+
+    <h2>How Mods Work</h2>
+
+    <h3>Mod Resolution</h3>
+    <p>Glovebox searches for mods in this order:</p>
+    <ol>
+      <li><strong>Project-local:</strong> <code>.glovebox/mods/&lt;category&gt;/&lt;name&gt;.yaml</code></li>
+      <li><strong>User global:</strong> <code>~/.glovebox/mods/&lt;category&gt;/&lt;name&gt;.yaml</code></li>
+      <li><strong>Embedded:</strong> Built into the glovebox binary</li>
+    </ol>
+    <p>Local mods take precedence, so you can override built-in mods if needed.</p>
+
+    <h3>Dependency Resolution</h3>
+    <p>Mods can declare dependencies using <code>requires</code>:</p>
+    <pre><code>name: gemini-cli
+requires:
+  - languages/nodejs  # Needs Node.js for npm install</code></pre>
+    <p>When you add a mod, Glovebox automatically includes its dependencies.</p>
+
+    <h3>Abstract Dependencies</h3>
+    <p>Some mods provide abstract capabilities:</p>
+    <pre><code>name: zsh-ubuntu
+requires:
+  - ubuntu      # Only works on Ubuntu
+provides:
+  - zsh         # Satisfies abstract "zsh" dependency</code></pre>
+    <p>This allows other mods to depend on "zsh" without caring which OS-specific variant is used.</p>
+
+    <h3>Dockerfile Generation</h3>
+    <p>When you run <code>glovebox build</code>, the generator:</p>
+    <ol>
+      <li>Loads all mods from your profile</li>
+      <li>Resolves dependencies</li>
+      <li>Collects from each mod: APT/DNF/APK repositories, packages to install, <code>run_as_root</code> commands, <code>run_as_user</code> commands, and environment variables</li>
+      <li>Outputs a complete Dockerfile</li>
+    </ol>
+    <p>You can see the generated Dockerfile at <code>~/.glovebox/Dockerfile</code> (base) or <code>.glovebox/Dockerfile</code> (project).</p>
+
+    <h2>Viewing Mod Contents</h2>
+    <p>To see what a mod does:</p>
+    <pre><code>glovebox mod cat editors/vim-ubuntu</code></pre>
+    <p>Output:</p>
+    <pre><code>name: vim-ubuntu
+description: Vim - the ubiquitous text editor (Ubuntu)
+category: editor
+requires:
+  - ubuntu
+provides:
+  - vim
+
+run_as_root: |
+  apt-get update && apt-get install -y vim && rm -rf /var/lib/apt/lists/*
+
+env:
+  EDITOR: vim</code></pre>
+
+    <h2>Adding and Removing Mods</h2>
+    <p>Add a mod to your profile (adds to project profile if one exists, otherwise to base profile):</p>
+    <pre><code>glovebox add editors/vim      # Resolves to editors/vim-ubuntu on Ubuntu
+glovebox add ai/claude-code   # OS-agnostic, adds as-is</code></pre>
+    <p>Remove a mod:</p>
+    <pre><code>glovebox remove editors/vim   # Removes editors/vim-ubuntu if that's installed</code></pre>
+    <p>After changing mods, rebuild:</p>
+    <pre><code>glovebox build        # Rebuild project image
+glovebox build --base # Rebuild base image</code></pre>
+
+    <h2>Next Steps</h2>
+    <ul>
+      <li><a href="/glovebox/docs/custom-mods/">Custom Mods</a> - Create your own mods</li>
+      <li><a href="/glovebox/docs/configuration/">Configuration</a> - Profile structure and options</li>
+    </ul>
+  </Prose>
+</DocsLayout>

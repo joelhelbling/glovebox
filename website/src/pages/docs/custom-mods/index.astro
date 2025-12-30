@@ -1,0 +1,207 @@
+---
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import Prose from '../../../components/Prose.astro';
+---
+
+<DocsLayout
+  title="Custom Mods"
+  description="Creating your own mods"
+  section="custom-mods"
+  order={4}
+>
+  <Prose>
+    <p>Custom mods let you extend Glovebox with your own tools, configurations, and workflows.</p>
+
+    <h2>Mod Locations</h2>
+    <table>
+      <thead>
+        <tr><th>Location</th><th>Scope</th><th>Path</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Project-local</td><td>Only this project</td><td><code>.glovebox/mods/&lt;category&gt;/&lt;name&gt;.yaml</code></td></tr>
+        <tr><td>User global</td><td>All your projects</td><td><code>~/.glovebox/mods/&lt;category&gt;/&lt;name&gt;.yaml</code></td></tr>
+      </tbody>
+    </table>
+    <p>Local mods take precedence over embedded ones, so you can override built-in mods if needed.</p>
+
+    <h2>Creating a Mod</h2>
+
+    <h3>Using the Template</h3>
+    <p>The easiest way to start:</p>
+    <pre><code>glovebox mod create my-tool
+# Creates .glovebox/mods/custom/my-tool.yaml</code></pre>
+    <p>For a global mod:</p>
+    <pre><code>glovebox mod create --global my-tool
+# Creates ~/.glovebox/mods/custom/my-tool.yaml</code></pre>
+
+    <h3>Mod Structure</h3>
+    <p>A mod is a YAML file with these fields:</p>
+    <pre><code>name: my-tool
+description: Brief description of what this mod provides
+category: custom
+
+# What this mod provides (optional, defaults to the mod name)
+provides:
+  - some-capability
+
+# Dependencies on other mods
+requires:
+  - tools/homebrew  # Use full mod IDs for concrete dependencies
+
+# Commands run as root during image build
+run_as_root: |
+  apt-get update && apt-get install -y some-package
+
+# Commands run as the ubuntu user during image build
+run_as_user: |
+  echo "export MY_VAR=value" >> ~/.bashrc
+
+# Environment variables set in the container
+env:
+  MY_VAR: value
+  PATH: /some/path:$PATH
+
+# Set as default shell (optional)
+user_shell: /usr/bin/zsh</code></pre>
+
+    <h3>Field Reference</h3>
+    <table>
+      <thead>
+        <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>name</code></td><td>Yes</td><td>Mod identifier (should match filename)</td></tr>
+        <tr><td><code>description</code></td><td>Yes</td><td>Brief description shown in <code>mod list</code></td></tr>
+        <tr><td><code>category</code></td><td>Yes</td><td>Grouping for organization</td></tr>
+        <tr><td><code>provides</code></td><td>No</td><td>Abstract capabilities this mod provides</td></tr>
+        <tr><td><code>requires</code></td><td>No</td><td>Dependencies (other mod IDs or abstract capabilities)</td></tr>
+        <tr><td><code>run_as_root</code></td><td>No</td><td>Shell commands run as root</td></tr>
+        <tr><td><code>run_as_user</code></td><td>No</td><td>Shell commands run as ubuntu user</td></tr>
+        <tr><td><code>env</code></td><td>No</td><td>Environment variables to set</td></tr>
+        <tr><td><code>user_shell</code></td><td>No</td><td>Set as default shell</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Package Installation</h3>
+    <p>For packages, use the appropriate package manager based on your target OS:</p>
+    <p><strong>Ubuntu (apt):</strong></p>
+    <pre><code>run_as_root: |
+  apt-get update && apt-get install -y ripgrep fd-find</code></pre>
+    <p><strong>Fedora (dnf):</strong></p>
+    <pre><code>run_as_root: |
+  dnf install -y ripgrep fd-find</code></pre>
+    <p><strong>Alpine (apk):</strong></p>
+    <pre><code>run_as_root: |
+  apk add --no-cache ripgrep fd</code></pre>
+    <p><strong>Homebrew (cross-platform):</strong></p>
+    <pre><code>requires:
+  - tools/homebrew
+
+run_as_user: |
+  brew install ripgrep fd</code></pre>
+
+    <h2>Examples</h2>
+
+    <h3>Simple Tool Installation</h3>
+    <pre><code>name: ripgrep
+description: Fast recursive grep alternative
+category: tools
+
+run_as_root: |
+  apt-get update && apt-get install -y ripgrep</code></pre>
+
+    <h3>Tool with Homebrew Dependency</h3>
+    <pre><code>name: github-cli
+description: GitHub's official CLI
+category: tools
+
+requires:
+  - tools/homebrew
+
+run_as_user: |
+  brew install gh</code></pre>
+
+    <h3>Configuration Mod</h3>
+    <pre><code>name: git-config
+description: Standard git configuration
+category: config
+
+run_as_user: |
+  git config --global init.defaultBranch main
+  git config --global pull.rebase true
+  git config --global core.editor nvim</code></pre>
+
+    <h3>OS-Specific Mod</h3>
+    <pre><code>name: docker-ubuntu
+description: Docker CLI for Ubuntu
+category: tools
+
+requires:
+  - ubuntu  # Only works on Ubuntu
+
+run_as_root: |
+  apt-get update
+  apt-get install -y ca-certificates curl gnupg
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  chmod a+r /etc/apt/keyrings/docker.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  apt-get update
+  apt-get install -y docker-ce-cli</code></pre>
+
+    <h3>Abstract Dependency</h3>
+    <pre><code>name: my-shell-config
+description: Custom shell configuration
+category: config
+
+requires:
+  - zsh  # Works with any zsh mod (zsh-ubuntu, zsh-fedora, etc.)
+
+run_as_user: |
+  echo 'alias ll="ls -la"' >> ~/.zshrc</code></pre>
+
+    <h2>Overriding Built-in Mods</h2>
+    <p>To customize a built-in mod:</p>
+    <pre><code># Copy the built-in mod as a starting point
+mkdir -p ~/.glovebox/mods/editors
+glovebox mod cat editors/neovim > ~/.glovebox/mods/editors/neovim.yaml
+
+# Edit to customize
+vim ~/.glovebox/mods/editors/neovim.yaml
+
+# Rebuild to apply changes
+glovebox build --base</code></pre>
+    <p>Your local version takes precedence over the embedded one.</p>
+
+    <h2>Testing Mods</h2>
+    <p>After creating or modifying a mod:</p>
+    <ol>
+      <li>Add it to your profile:
+        <pre><code>glovebox add custom/my-tool</code></pre>
+      </li>
+      <li>Generate the Dockerfile to inspect:
+        <pre><code>glovebox build --generate-only
+cat .glovebox/Dockerfile  # or ~/.glovebox/Dockerfile for base</code></pre>
+      </li>
+      <li>Build and test:
+        <pre><code>glovebox build
+glovebox run</code></pre>
+      </li>
+      <li>If something breaks, clean up and iterate:
+        <pre><code>glovebox clean
+# Edit your mod
+glovebox build</code></pre>
+      </li>
+    </ol>
+
+    <h2>Best Practices</h2>
+    <ol>
+      <li><strong>Choose the right installation method:</strong> For OS-specific mods, prefer native package managers (apt, dnf, apk) for lighter-weight images. Homebrew is still useful for tools not available in native repos, or when you want one mod that works across all OSes.</li>
+      <li><strong>Create OS-specific variants when needed:</strong> If your mod uses OS-specific commands, create separate variants (e.g., <code>my-tool-ubuntu.yaml</code>, <code>my-tool-fedora.yaml</code>) with <code>requires: [ubuntu]</code> (or fedora, alpine) and <code>provides: [my-tool]</code> so other mods can depend on the abstract capability.</li>
+      <li><strong>Declare dependencies explicitly:</strong> Don't assume other mods are present.</li>
+      <li><strong>Keep mods focused:</strong> One tool or configuration per mod is easier to manage.</li>
+      <li><strong>Test on clean builds:</strong> Use <code>glovebox clean</code> before testing to ensure your mod works from scratch.</li>
+      <li><strong>Document with description:</strong> A good description helps when browsing <code>mod list</code>.</li>
+    </ol>
+  </Prose>
+</DocsLayout>

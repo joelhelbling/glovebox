@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Page Not Found" description="The page you're looking for doesn't exist.">
+  <section class="py-20 lg:py-32">
+    <div class="container-narrow text-center">
+      <img
+        src="/glovebox/404-illustration.png"
+        alt="Empty glovebox - no operator, chamber empty"
+        class="w-full max-w-sm mx-auto mb-10"
+      />
+
+      <h1 class="text-4xl lg:text-5xl font-medium mb-4">Page Not Found</h1>
+      <p class="text-xl text-muted mb-8">
+        The chamber is empty. Whatever you were looking for isn't here.
+      </p>
+
+      <a href="/glovebox/" class="btn-primary">
+        Return to Safety
+        <svg class="w-5 h-5 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </section>
+</BaseLayout>
