@@ -22,7 +22,7 @@ const docsSections = [
             <p class="text-xl text-muted">Everything you need to run the box.</p>
           </div>
           <img
-            src="/glovebox/docs-header.png"
+            src="/docs-header.png"
             alt="Operating Manual illustration"
             class="hidden md:block w-[36rem] h-auto flex-shrink-0"
           />
@@ -32,7 +32,7 @@ const docsSections = [
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {docsSections.map(doc => (
           <a
-            href={`/glovebox/docs/${doc.slug}/`}
+            href={`/docs/${doc.slug}/`}
             class="group block bg-white rounded-lg p-6 shadow-card border-hairline border-muted/20 hover:shadow-lg hover:border-teal/30 transition-all"
           >
             <div class="section-number mb-2">{doc.num}.</div>

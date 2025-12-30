@@ -3,8 +3,8 @@ import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://joelhelbling.github.io',
-  base: '/glovebox',
+  site: 'https://glovebox.work',
+  base: '/',
   integrations: [tailwind()],
   output: 'static',
 });
