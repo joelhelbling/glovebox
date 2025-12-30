@@ -47,7 +47,7 @@ These prompts are formatted for the nanobanana Gemini CLI extension. Copy and pa
 **Output:** `icon-persistent-containers.png`
 
 ```
-/icon "icon-persistent-containers.png 1950s industrial equipment schematic style icon showing a durable container with hinged lid. Side cutaway view of rectangular container, lid shown slightly open at 15-20 degrees with visible hinge. Container walls drawn with double lines showing thickness and durability. Inside shows simple stable organized contents (small circles or rectangles). Small curved arrow near lid suggesting open/close motion. Laboratory specimen container or equipment case aesthetic. Clean precise linework in teal #1d7a74 only. Flat design, no gradients, no 3D effects, no shading." --sizes="64" --style="minimal" --background="transparent" --corners="sharp" --count=4 --preview
+/icon "icon-persistent-containers.png 1950s industrial equipment schematic style icon showing a durable container with hinged lid. Side cutaway view of rectangular container, lid shown slightly open at 15-20 degrees with visible hinge. Container walls drawn with double lines showing thickness and durability. Inside shows simple stable organized contents (small circles or rectangles). Small curved arrow near lid suggesting open/close motion. Laboratory specimen container or equipment case aesthetic. Clean precise linework in teal #1d7a74 only. Flat design, no gradients, no 3D effects, no shading." --sizes="64,128,256" --style="minimal" --background="transparent" --corners="sharp" --preview
 ```
 
 ---
