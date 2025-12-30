@@ -8,7 +8,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = 'A sandboxed Docker environment that actually feels like home.' } = Astro.props;
+const { title, description = 'A sandboxed development environment that actually feels like home.' } = Astro.props;
 const fullTitle = title === 'Glovebox' ? title : `${title} | Glovebox`;
 ---
 
