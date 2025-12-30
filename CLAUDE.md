@@ -87,7 +87,10 @@ make version           # Show version that would be built
 
 ## Architecture
 
-Glovebox is a Go CLI that generates and runs Docker containers for sandboxed development environments. It uses a **mod-based composition system** where YAML mods define reusable pieces of Dockerfile configuration.
+Glovebox is a Go CLI that generates and runs Docker containers for sandboxed development environments.
+It uses a **mod-based composition system** where YAML mods define reusable pieces of Dockerfile configuration.
+It is geared towards terminal-based development, as a "workbench" for experimenting with potentially
+dangerous MCP servers, packages/libraries, and "rando" scripts downloaded from the internet.
 
 ### Key Packages
 
