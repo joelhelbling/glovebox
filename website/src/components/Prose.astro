@@ -130,9 +130,11 @@
 
 <script>
   function initProseCopyButtons() {
+    let codeIndex = 0;
     document.querySelectorAll('.prose-docs pre').forEach(pre => {
       // Skip if already wrapped
       if (pre.parentElement?.classList.contains('code-wrapper')) return;
+      const currentIndex = codeIndex++;  // Capture current index for this block
 
       // Create wrapper
       const wrapper = document.createElement('div');
@@ -143,6 +145,7 @@
       btn.type = 'button';
       btn.className = 'prose-copy-btn';
       btn.setAttribute('aria-label', 'Copy to clipboard');
+      btn.setAttribute('data-code-index', currentIndex.toString());
       btn.innerHTML = `
         <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -162,6 +165,13 @@
           await navigator.clipboard.writeText(code);
           btn.classList.add('copied');
           setTimeout(() => btn.classList.remove('copied'), 2000);
+          // Track copy event for docs
+          if (window.trackEvent) {
+            const path = window.location.pathname;
+            const pageName = path.replace('/docs/', '').replace(/\/$/, '') || 'index';
+            const codeIndex = btn.getAttribute('data-code-index') || '0';
+            window.trackEvent('copy_docs_' + pageName + '_' + codeIndex);
+          }
         } catch (err) {
           console.error('Failed to copy:', err);
         }

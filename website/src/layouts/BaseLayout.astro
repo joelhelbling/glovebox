@@ -35,5 +35,105 @@ const fullTitle = title === 'Glovebox' ? title : `${title} | Glovebox`;
       <slot />
     </main>
     <Footer />
+
+    <script is:inline>
+      // Analytics helper - sends events to minimalytics
+      window.trackEvent = async function(eventName) {
+        try {
+          await fetch('https://minimalytics.hshp.cc/api/event/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event: eventName })
+          });
+        } catch (e) {
+          // Silent fail - don't break site if analytics is down
+        }
+      };
+
+      // Track page view on load
+      function trackPageView() {
+        const path = window.location.pathname;
+        let eventName;
+
+        if (path === '/') {
+          eventName = 'pageview_home';
+        } else if (path === '/docs/' || path === '/docs') {
+          eventName = 'pageview_docs';
+        } else if (path.startsWith('/docs/')) {
+          // Extract doc page name: /docs/getting-started/ -> getting-started
+          const pageName = path.replace('/docs/', '').replace(/\/$/, '');
+          eventName = 'pageview_docs_' + pageName;
+        } else {
+          eventName = 'pageview_' + path.replace(/\//g, '_').replace(/^_|_$/g, '');
+        }
+
+        window.trackEvent(eventName);
+      }
+
+      // Track section visibility on homepage
+      function initSectionTracking() {
+        if (window.location.pathname !== '/') return;
+
+        const trackedSections = new Set();
+        const sections = document.querySelectorAll('[data-track-section]');
+
+        if (sections.length === 0) return;
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const sectionName = entry.target.dataset.trackSection;
+              if (!trackedSections.has(sectionName)) {
+                trackedSections.add(sectionName);
+                window.trackEvent('scroll_home_' + sectionName);
+              }
+            }
+          });
+        }, { threshold: 0.3 });
+
+        sections.forEach((section) => observer.observe(section));
+      }
+
+      // Track CTA and external link clicks
+      function initClickTracking() {
+        // CTA buttons
+        document.querySelectorAll('[data-track-cta]').forEach((el) => {
+          if (el.hasAttribute('data-tracking-initialized')) return;
+          el.setAttribute('data-tracking-initialized', 'true');
+          el.addEventListener('click', () => {
+            window.trackEvent('cta_' + el.dataset.trackCta);
+          });
+        });
+
+        // External links (GitHub)
+        document.querySelectorAll('[data-track-click]').forEach((el) => {
+          if (el.hasAttribute('data-tracking-initialized')) return;
+          el.setAttribute('data-tracking-initialized', 'true');
+          el.addEventListener('click', () => {
+            window.trackEvent('click_' + el.dataset.trackClick);
+          });
+        });
+      }
+
+      // Initialize tracking
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          trackPageView();
+          initSectionTracking();
+          initClickTracking();
+        });
+      } else {
+        trackPageView();
+        initSectionTracking();
+        initClickTracking();
+      }
+
+      // Handle Astro page transitions
+      document.addEventListener('astro:page-load', () => {
+        trackPageView();
+        initSectionTracking();
+        initClickTracking();
+      });
+    </script>
   </body>
 </html>
