@@ -1,7 +1,7 @@
 ---
 const navLinks = [
   { href: '/docs/', label: 'Docs' },
-  { href: 'https://github.com/joelhelbling/glovebox', label: 'GitHub', external: true },
+  { href: 'https://github.com/joelhelbling/glovebox', label: 'GitHub', external: true, trackClick: 'github_header' },
 ];
 ---
 
@@ -24,6 +24,7 @@ const navLinks = [
           href={link.href}
           class="text-muted hover:text-ink transition-colors font-medium"
           {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          {...(link.trackClick ? { 'data-track-click': link.trackClick } : {})}
         >
           {link.label}
           {link.external && (

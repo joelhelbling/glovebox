@@ -30,10 +30,10 @@ import SectionHeader from '../components/SectionHeader.astro';
         </p>
 
         <div class="mb-8 max-w-lg mx-auto">
-          <CodeBlock code="brew install joelhelbling/glovebox/glovebox" />
+          <CodeBlock code="brew install joelhelbling/glovebox/glovebox" trackingId="brew_install" />
         </div>
 
-        <a href="/docs/getting-started/" class="btn-primary">
+        <a href="/docs/getting-started/" class="btn-primary" data-track-cta="get_started">
           Get Started
           <svg class="w-5 h-5 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M5 12h14M12 5l7 7-7 7"/>
@@ -44,7 +44,7 @@ import SectionHeader from '../components/SectionHeader.astro';
   </section>
 
   <!-- Why Glovebox Section -->
-  <section class="py-20 lg:py-24">
+  <section class="py-20 lg:py-24" data-track-section="why_glovebox">
     <div class="container-narrow">
       <SectionHeader title="Why Glovebox" />
 
@@ -69,7 +69,7 @@ import SectionHeader from '../components/SectionHeader.astro';
   </section>
 
   <!-- Features Section -->
-  <section class="py-20 lg:py-24 bg-white/50">
+  <section class="py-20 lg:py-24 bg-white/50" data-track-section="features">
     <div class="container-wide">
       <SectionHeader title="Features" />
 
@@ -99,7 +99,7 @@ import SectionHeader from '../components/SectionHeader.astro';
   </section>
 
   <!-- Quick Start Section -->
-  <section class="py-20 lg:py-24">
+  <section class="py-20 lg:py-24" data-track-section="quickstart">
     <div class="container-narrow">
       <SectionHeader title="Quick Start" />
 
@@ -107,13 +107,13 @@ import SectionHeader from '../components/SectionHeader.astro';
         <div>
           <h3 class="text-lg font-medium mb-4">One-time setup:</h3>
           <CodeBlock code={`glovebox init --base    # Select your OS, shell, editor, tools
-glovebox build --base   # Build the base image`} />
+glovebox build --base   # Build the base image`} trackingId="init_build_base" />
         </div>
 
         <div>
           <h3 class="text-lg font-medium mb-4">Then, in any project:</h3>
           <CodeBlock code={`cd ~/projects/my-app
-glovebox run`} />
+glovebox run`} trackingId="run_project" />
           <p class="mt-4 text-muted">
             You're inside a sandboxed container. Your project is mounted at <code class="text-sm bg-black/5 px-1.5 py-0.5 rounded font-mono">/workspace</code>. Your shell, your editor, your tools—all there. When you exit, your container persists. When you return, it's waiting.
           </p>
@@ -121,14 +121,14 @@ glovebox run`} />
 
         <div>
           <h3 class="text-lg font-medium mb-4">Clean up when needed:</h3>
-          <CodeBlock code="glovebox clean --all" />
+          <CodeBlock code="glovebox clean --all" trackingId="clean_all" />
         </div>
       </div>
     </div>
   </section>
 
   <!-- Is This For Me Section -->
-  <section class="py-20 lg:py-24 bg-white/50">
+  <section class="py-20 lg:py-24 bg-white/50" data-track-section="is_this_for_me">
     <div class="container-narrow">
       <SectionHeader title="Is This For Me?" />
 

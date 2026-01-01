@@ -3,16 +3,17 @@ interface Props {
   code: string;
   lang?: string;
   showPrompt?: boolean;
+  trackingId?: string;
 }
 
-const { code, lang = 'bash', showPrompt = true } = Astro.props;
+const { code, lang = 'bash', showPrompt = true, trackingId } = Astro.props;
 
 // Process lines to add prompt styling
 const lines = code.trim().split('\n');
 ---
 
 <div class="code-block-wrapper">
-  <button type="button" class="copy-btn" aria-label="Copy to clipboard" data-code={code.trim()}>
+  <button type="button" class="copy-btn" aria-label="Copy to clipboard" data-code={code.trim()} data-tracking-id={trackingId}>
     <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
       <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
@@ -81,11 +82,16 @@ const lines = code.trim().split('\n');
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         const code = btn.getAttribute('data-code');
+        const trackingId = btn.getAttribute('data-tracking-id');
         if (code) {
           try {
             await navigator.clipboard.writeText(code);
             btn.classList.add('copied');
             setTimeout(() => btn.classList.remove('copied'), 2000);
+            // Track copy event if trackingId is set
+            if (trackingId && window.trackEvent) {
+              window.trackEvent('copy_' + trackingId);
+            }
           } catch (err) {
             console.error('Failed to copy:', err);
           }
