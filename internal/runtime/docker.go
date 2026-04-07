@@ -3,8 +3,12 @@ package runtime
 import (
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 )
+
+// Compile-time check that DockerRuntime implements Runtime.
+var _ Runtime = (*DockerRuntime)(nil)
 
 // DockerRuntime implements Runtime using the Docker CLI.
 type DockerRuntime struct {
@@ -88,8 +92,13 @@ func (d *DockerRuntime) buildRunArgs(cfg RunConfig) []string {
 		args = append(args, "--hostname", cfg.Hostname)
 	}
 
-	for key, val := range cfg.Env {
-		args = append(args, "-e", fmt.Sprintf("%s=%s", key, val))
+	keys := make([]string, 0, len(cfg.Env))
+	for k := range cfg.Env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		args = append(args, "-e", fmt.Sprintf("%s=%s", key, cfg.Env[key]))
 	}
 
 	args = append(args, cfg.ImageName)

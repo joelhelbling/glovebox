@@ -21,7 +21,7 @@ var (
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
-	Short: "Generate Dockerfile and build Docker image",
+	Short: "Generate Dockerfile and build image",
 	Long: `Generate a Dockerfile from your profile mods and build the Docker image.
 
 For the global profile (~/.glovebox/profile.yaml), this builds glovebox:base.
@@ -176,7 +176,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 			}
 			colorGreen.Printf("✓ Dockerfile is already up to date (%s)\n", dockerfilePath)
 			if !buildGenerate {
-				return runDockerBuild(dockerfilePath, imageName)
+				return runImageBuild(dockerfilePath, imageName)
 			}
 			return nil
 		}
@@ -223,7 +223,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 				}
 				colorGreen.Println("✓ Keeping current Dockerfile and updating digest")
 				if !buildGenerate {
-					return runDockerBuild(dockerfilePath, imageName)
+					return runImageBuild(dockerfilePath, imageName)
 				}
 				return nil
 			case "regenerate":
@@ -259,7 +259,7 @@ func buildImage(p *profile.Profile, dockerfilePath, imageName, newContent string
 		return nil
 	}
 
-	return runDockerBuild(dockerfilePath, imageName)
+	return runImageBuild(dockerfilePath, imageName)
 }
 
 func promptBuildAction() (string, error) {
@@ -321,7 +321,7 @@ func showDiff(existing, new string) error {
 	return nil
 }
 
-func runDockerBuild(dockerfilePath, imageName string) error {
+func runImageBuild(dockerfilePath, imageName string) error {
 	fmt.Printf("\nBuilding image %s...\n", imageName)
 
 	dockerfileDir := dockerfilePath[:len(dockerfilePath)-len("Dockerfile")]

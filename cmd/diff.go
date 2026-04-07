@@ -20,7 +20,7 @@ var diffCmd = &cobra.Command{
 
 By default, changes are grouped by category and noise (history files,
 cache, etc.) is filtered out. Use --raw to see all changes as reported
-by Docker.
+by the container runtime.
 
 Change types:
   A = Added
@@ -30,7 +30,7 @@ Change types:
 }
 
 func init() {
-	diffCmd.Flags().BoolVar(&diffRaw, "raw", false, "Show raw docker diff output (no filtering)")
+	diffCmd.Flags().BoolVar(&diffRaw, "raw", false, "Show raw diff output (no filtering)")
 	rootCmd.AddCommand(diffCmd)
 }
 

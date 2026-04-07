@@ -454,7 +454,7 @@ func getOSFromProfile(dir string) string {
 	return ""
 }
 
-// determineImage figures out which Docker image to use for the given directory
+// determineImage figures out which image to use for the given directory
 func determineImage(dir string) (string, error) {
 	// Check for project profile
 	projectProfile, err := profile.LoadProject(dir)
