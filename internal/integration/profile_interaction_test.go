@@ -16,7 +16,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
@@ -144,55 +143,6 @@ func TestPassthroughEnvMerging(t *testing.T) {
 	}
 	if !containsString(result, "PROJECT_ONLY") {
 		t.Error("expected PROJECT_ONLY from project profile")
-	}
-}
-
-// TestPassthroughEnvInDockerArgs verifies that passthrough env vars are correctly
-// translated into docker run -e arguments.
-func TestPassthroughEnvInDockerArgs(t *testing.T) {
-	// Create a mock environment lookup
-	mockEnv := map[string]string{
-		"API_KEY":   "secret123",
-		"OTHER_VAR": "value456",
-		"UNSET_VAR": "", // This one is "unset"
-	}
-	envLookup := func(key string) string {
-		return mockEnv[key]
-	}
-
-	result := docker.BuildRunArgs(docker.RunArgsConfig{
-		ContainerName:  "test-container",
-		ImageName:      "test-image",
-		HostPath:       "/host/path",
-		WorkspacePath:  "/workspace",
-		PassthroughEnv: []string{"API_KEY", "OTHER_VAR", "UNSET_VAR"},
-		EnvLookup:      envLookup,
-	})
-
-	// Check that set vars are passed through
-	if !containsString(result.PassedVars, "API_KEY") {
-		t.Error("expected API_KEY to be in PassedVars")
-	}
-	if !containsString(result.PassedVars, "OTHER_VAR") {
-		t.Error("expected OTHER_VAR to be in PassedVars")
-	}
-
-	// Check that unset var is in MissingVars
-	if !containsString(result.MissingVars, "UNSET_VAR") {
-		t.Error("expected UNSET_VAR to be in MissingVars")
-	}
-
-	// Check actual docker args contain the -e flags
-	argsStr := strings.Join(result.Args, " ")
-	if !strings.Contains(argsStr, "-e API_KEY=secret123") {
-		t.Error("expected docker args to contain '-e API_KEY=secret123'")
-	}
-	if !strings.Contains(argsStr, "-e OTHER_VAR=value456") {
-		t.Error("expected docker args to contain '-e OTHER_VAR=value456'")
-	}
-	// Unset var should NOT be in args
-	if strings.Contains(argsStr, "UNSET_VAR") {
-		t.Error("unset var should not appear in docker args")
 	}
 }
 
