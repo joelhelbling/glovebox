@@ -7,6 +7,14 @@ import SectionHeader from '../components/SectionHeader.astro';
 
 <BaseLayout title="Glovebox" description="A sandboxed development environment that actually feels like home. Your shell, your editor, your workflow—running safely inside a container.">
 
+  <!-- Announcement Banner -->
+  <div class="bg-teal text-cream text-center py-3 px-6">
+    <p class="text-sm font-medium">
+      <span class="font-semibold">New in v0.5.0:</span> Apple Containers support on Apple Silicon — hardware-level isolation, automatic detection.
+      <a href="#features" class="underline hover:text-cream/80 ml-1">Learn more</a>
+    </p>
+  </div>
+
   <!-- Hero Section -->
   <section class="py-20 lg:py-32 grid-bg">
     <div class="container-wide">
@@ -73,7 +81,7 @@ import SectionHeader from '../components/SectionHeader.astro';
   </section>
 
   <!-- Features Section -->
-  <section class="py-20 lg:py-24 bg-white/50" data-track-section="features">
+  <section id="features" class="py-20 lg:py-24 bg-white/50" data-track-section="features">
     <div class="container-wide">
       <SectionHeader title="Features" />
 
