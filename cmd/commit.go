@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/joelhelbling/glovebox/internal/docker"
@@ -46,8 +45,13 @@ func runCommit(cmd *cobra.Command, args []string) error {
 	containerName := docker.ContainerName(absPath)
 
 	// Check if container exists
-	if !docker.ContainerExists(containerName) {
+	if !rt.ContainerExists(containerName) {
 		return fmt.Errorf("no container found for this project\nRun 'glovebox run' first to create a container")
+	}
+
+	caps := rt.Capabilities()
+	if !caps.SupportsCommit {
+		return fmt.Errorf("commit is not supported by %s runtime", rt.Name())
 	}
 
 	// Determine image name
@@ -60,14 +64,12 @@ func runCommit(cmd *cobra.Command, args []string) error {
 	prompt := ui.NewPrompt()
 	fmt.Printf("Committing container to %s...\n", imageName)
 
-	commitCmd := exec.Command("docker", "commit", containerName, imageName)
-	if err := commitCmd.Run(); err != nil {
+	if err := rt.Commit(containerName, imageName); err != nil {
 		return fmt.Errorf("committing container: %w", err)
 	}
 
 	// Remove the container
-	rmCmd := exec.Command("docker", "container", "rm", containerName)
-	if err := rmCmd.Run(); err != nil {
+	if err := rt.RemoveContainer(containerName); err != nil {
 		fmt.Print(prompt.RenderWarning(fmt.Sprintf("could not remove container: %v", err)))
 	}
 
