@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/mod"
 	"github.com/joelhelbling/glovebox/internal/profile"
+	"github.com/joelhelbling/glovebox/internal/runtime"
 	"github.com/joelhelbling/glovebox/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -71,8 +71,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 	dirName := filepath.Base(absPath)
 
 	// Check if container already exists
-	containerExists := docker.ContainerExists(containerName)
-	containerRunning := docker.ContainerRunning(containerName)
+	containerExists := rt.ContainerExists(containerName)
+	containerRunning := rt.ContainerRunning(containerName)
 
 	// Mount workspace at /<dirName> so the prompt shows the project name
 	workspacePath := "/" + dirName
@@ -97,15 +97,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			colorYellow.Printf("Warning: could not load passthrough env: %v\n", err)
 		} else {
-			result := docker.BuildRunArgs(docker.RunArgsConfig{
-				ContainerName:  containerName,
-				ImageName:      imageName,
-				HostPath:       absPath,
-				WorkspacePath:  workspacePath,
-				PassthroughEnv: passthroughEnv,
-				EnvLookup:      os.Getenv,
-			})
-			passthroughVars = result.PassedVars
+			for _, env := range passthroughEnv {
+				if os.Getenv(env) != "" {
+					passthroughVars = append(passthroughVars, env)
+				}
+			}
 		}
 	}
 
@@ -144,81 +140,37 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 // attachToContainer attaches to a running container
 func attachToContainer(name string) error {
-	docker := exec.Command("docker", "attach", name)
-	docker.Stdin = os.Stdin
-	docker.Stdout = os.Stdout
-	docker.Stderr = os.Stderr
-	return ignoreExitError(docker.Run())
-}
-
-// ignoreExitError filters out normal container exit codes while preserving
-// Docker-specific errors that indicate real problems.
-//
-// Exit codes:
-//   - 125: Docker daemon error (failed to create/start container)
-//   - 126: Command cannot be invoked (permission denied)
-//   - 127: Command not found in container
-//   - 137: Container killed by SIGKILL (often OOM killer)
-//   - Other: Normal exit (including non-zero from last shell command)
-func ignoreExitError(err error) error {
-	if err == nil {
-		return nil
-	}
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
-		return err // Not an exit error, return as-is
-	}
-
-	code := exitErr.ExitCode()
-	switch {
-	case code >= 125 && code <= 127:
-		// Docker daemon errors - these are real failures
-		return fmt.Errorf("docker error (exit %d): %w", code, err)
-	case code == 137:
-		// SIGKILL - often OOM, worth mentioning
-		return fmt.Errorf("container was killed (exit 137, possibly out of memory)")
-	default:
-		// Normal container exit, ignore
-		return nil
-	}
+	return rt.Attach(name)
 }
 
 // startContainer starts an existing stopped container
 func startContainer(name, hostPath, workspacePath string) error {
-	// Start the container in attached mode
-	docker := exec.Command("docker", "start", "-ai", name)
-	docker.Stdin = os.Stdin
-	docker.Stdout = os.Stdout
-	docker.Stderr = os.Stderr
-	return ignoreExitError(docker.Run())
+	return rt.StartInteractive(name)
 }
 
 // createAndStartContainerWithEnv creates a new container with pre-computed env vars
 func createAndStartContainerWithEnv(name, imageName, hostPath, workspacePath string, _ []string) error {
-	// Get passthrough env config from profiles
 	passthroughEnv, err := profile.EffectivePassthroughEnv(hostPath)
 	if err != nil {
-		// Non-fatal: continue without passthrough vars
 		passthroughEnv = nil
 	}
 
-	// Build docker run arguments
-	result := docker.BuildRunArgs(docker.RunArgsConfig{
-		ContainerName:  name,
-		ImageName:      imageName,
-		HostPath:       hostPath,
-		WorkspacePath:  workspacePath,
-		PassthroughEnv: passthroughEnv,
-		EnvLookup:      os.Getenv,
+	env := make(map[string]string)
+	for _, envName := range passthroughEnv {
+		if val := os.Getenv(envName); val != "" {
+			env[envName] = val
+		}
+	}
+	env["MISE_TRUSTED_CONFIG_PATHS"] = fmt.Sprintf("%s:%s/**", workspacePath, workspacePath)
+
+	return rt.RunInteractive(runtime.RunConfig{
+		ContainerName: name,
+		ImageName:     imageName,
+		HostPath:      hostPath,
+		WorkspacePath: workspacePath,
+		Env:           env,
+		Hostname:      "glovebox",
 	})
-
-	// Run docker
-	cmd := exec.Command("docker", result.Args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return ignoreExitError(cmd.Run())
 }
 
 // handlePostExit shows a summary of container changes (no prompt)
@@ -244,18 +196,19 @@ func handlePostExit(containerName, imageName string) error {
 
 // getContainerDiff returns the filesystem changes in a container
 func getContainerDiff(name string) ([]string, error) {
-	cmd := exec.Command("docker", "diff", name)
-	output, err := cmd.Output()
+	caps := rt.Capabilities()
+	if !caps.SupportsDiff {
+		return nil, nil
+	}
+
+	diffs, err := rt.Diff(name)
 	if err != nil {
 		return nil, err
 	}
 
 	var changes []string
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if line != "" {
-			changes = append(changes, line)
-		}
+	for _, d := range diffs {
+		changes = append(changes, fmt.Sprintf("%s %s", d.ChangeType, d.Path))
 	}
 	return changes, nil
 }
@@ -469,14 +422,12 @@ func summarizeChanges(changes []string) []string {
 
 // commitContainer commits container changes to its image
 func commitContainer(containerName, imageName string) error {
-	cmd := exec.Command("docker", "commit", containerName, imageName)
-	return cmd.Run()
+	return rt.Commit(containerName, imageName)
 }
 
 // deleteContainer removes a container without printing
 func deleteContainer(containerName string) error {
-	cmd := exec.Command("docker", "container", "rm", containerName)
-	return cmd.Run()
+	return rt.RemoveContainer(containerName)
 }
 
 // getOSFromProfile determines the OS name from the effective profile
@@ -515,7 +466,7 @@ func determineImage(dir string) (string, error) {
 		// Project profile exists - use project image
 		imageName := projectProfile.ImageName()
 
-		if !docker.ImageExists(imageName) {
+		if !rt.ImageExists(imageName) {
 			colorYellow.Printf("Project image %s not found. Building...\n\n", imageName)
 			if err := buildProjectImage(projectProfile); err != nil {
 				return "", fmt.Errorf("building project image: %w", err)
@@ -527,7 +478,7 @@ func determineImage(dir string) (string, error) {
 	}
 
 	// No project profile - use base image
-	if !docker.ImageExists("glovebox:base") {
+	if !rt.ImageExists("glovebox:base") {
 		// Check if global profile exists
 		globalProfile, err := profile.LoadGlobal()
 		if err != nil {
