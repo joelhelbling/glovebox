@@ -1,6 +1,6 @@
 # Glovebox
 
-A composable, dockerized development sandbox for working with dangerous things like agentic coding tools and npm packages.
+A composable, containerized development sandbox for working with dangerous things like agentic coding tools and npm packages.
 
 ![Glovebox](glovebox-1.jpg)
 
@@ -8,7 +8,7 @@ A composable, dockerized development sandbox for working with dangerous things l
 
 AI coding assistants are powerful, but they run code. So do npm packages, pip installs, and that sketchy shell script you found on Stack Overflow. Running untrusted code on your development machine is a risk—but constantly spinning up VMs or fighting with container configs kills your flow.
 
-Glovebox gives you a sandboxed Docker environment that actually feels like home. Your shell, your editor, your tools—all running safely inside a container with your project mounted. Think of it as glamping on Jurassic Island: even in mortal danger, you still get your Nespresso.
+Glovebox gives you a sandboxed container environment that actually feels like home. Your shell, your editor, your tools—all running safely inside a container with your project mounted. Think of it as glamping on Jurassic Island: even in mortal danger, you still get your Nespresso.
 
 **What makes it different:**
 
@@ -19,8 +19,11 @@ Glovebox gives you a sandboxed Docker environment that actually feels like home.
 
 ## Prerequisites
 
-- Docker
-- Go 1.25+ (for building from source)
+- **macOS (Apple Silicon):** [Apple Containers](https://github.com/apple/container) — preferred, provides hardware-level isolation (`brew install --cask container`)
+- **macOS / Linux:** [Docker](https://docs.docker.com/get-docker/) — universal fallback
+- Go 1.25+ (only if building from source)
+
+Glovebox auto-detects the best available runtime. See [Runtime Support](#runtime-support) below.
 
 ## Installation
 
@@ -53,7 +56,7 @@ cd ~/projects/my-app
 glovebox run
 ```
 
-You're now inside a sandboxed container with your project mounted at `/workspace`.
+You're now inside a sandboxed container with your project mounted at `/my-app`.
 
 ### Clean Up
 
@@ -83,6 +86,24 @@ For more commands like `status`, `add`, `remove`, and `clone`, see the [Commands
 Glovebox is a **personal workbench tool**. It doesn't go "in your code" and doesn't run on your production server. It's the toolbox on your workbench where you safely tinker with the unknown.
 
 For secure infrastructure aimed at running AI-generated code in production, check out [Daytona](https://www.daytona.io).
+
+## Runtime Support
+
+Glovebox automatically selects the best available container runtime:
+
+| Runtime | Platform | Isolation | Auto-detected |
+|---------|----------|-----------|---------------|
+| **Apple Containers** | macOS (Apple Silicon) | Hardware — each container runs in its own micro-VM | Yes (preferred) |
+| **Docker** | macOS, Linux | Process-level — containers share the host kernel | Yes (fallback) |
+
+On Apple Silicon Macs with Apple Containers installed, glovebox uses it by default. No configuration needed — just `glovebox run`. If Apple Containers isn't available, glovebox falls back to Docker and lets you know.
+
+You can also choose explicitly:
+
+```bash
+glovebox --runtime apple run    # Force Apple Containers
+glovebox --runtime docker run   # Force Docker
+```
 
 ## Documentation
 
