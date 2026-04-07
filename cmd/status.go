@@ -3,9 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/digest"
 	"github.com/joelhelbling/glovebox/internal/docker"
@@ -79,7 +77,7 @@ func buildBaseSection(globalProfile *profile.Profile) ui.StatusSection {
 	// Image status
 	imageStatus := ui.StatusOK
 	imageNote := ""
-	if !docker.ImageExists("glovebox:base") {
+	if !rt.ImageExists("glovebox:base") {
 		imageStatus = ui.StatusWarning
 		imageNote = "Run 'glovebox build --base' to build."
 	}
@@ -127,7 +125,7 @@ func buildProjectSection(projectProfile *profile.Profile, globalProfile *profile
 	imageName := projectProfile.ImageName()
 	imageStatus := ui.StatusOK
 	imageNote := ""
-	if !docker.ImageExists(imageName) {
+	if !rt.ImageExists(imageName) {
 		imageStatus = ui.StatusWarning
 		imageNote = "Run 'glovebox build' to build."
 	}
@@ -179,8 +177,8 @@ func buildContainerSection(cwd string) ui.StatusSection {
 		ui.StatusItem{Label: "Container", Value: containerName},
 	)
 
-	if docker.ContainerExists(containerName) {
-		if docker.ContainerRunning(containerName) {
+	if rt.ContainerExists(containerName) {
+		if rt.ContainerRunning(containerName) {
 			section.Items = append(section.Items,
 				ui.StatusItem{Label: "Status", Value: "Running", Status: ui.StatusOK},
 			)
@@ -188,12 +186,15 @@ func buildContainerSection(cwd string) ui.StatusSection {
 			section.Items = append(section.Items,
 				ui.StatusItem{Label: "Status", Value: "Stopped (will resume on next run)", Status: ui.StatusOK},
 			)
-			// Check for uncommitted changes
-			changes, err := getContainerChanges(containerName)
-			if err == nil && len(changes) > 0 {
-				section.Items = append(section.Items,
-					ui.StatusItem{Label: "Changes", Value: fmt.Sprintf("%d uncommitted", len(changes)), Status: ui.StatusWarning},
-				)
+			// Check for uncommitted changes (only if runtime supports diff)
+			caps := rt.Capabilities()
+			if caps.SupportsDiff {
+				changes, err := getContainerChanges(containerName)
+				if err == nil && len(changes) > 0 {
+					section.Items = append(section.Items,
+						ui.StatusItem{Label: "Changes", Value: fmt.Sprintf("%d uncommitted", len(changes)), Status: ui.StatusWarning},
+					)
+				}
 			}
 		}
 	} else {
@@ -267,17 +268,13 @@ func getDockerfileStatusItems(p *profile.Profile, dockerfilePath string, generat
 }
 
 func getContainerChanges(name string) ([]string, error) {
-	cmd := exec.Command("docker", "diff", name)
-	output, err := cmd.Output()
+	diffs, err := rt.Diff(name)
 	if err != nil {
 		return nil, err
 	}
 	var changes []string
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if line != "" {
-			changes = append(changes, line)
-		}
+	for _, d := range diffs {
+		changes = append(changes, fmt.Sprintf("%s %s", d.ChangeType, d.Path))
 	}
 	return changes, nil
 }
