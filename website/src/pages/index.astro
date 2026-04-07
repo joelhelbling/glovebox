@@ -64,6 +64,10 @@ import SectionHeader from '../components/SectionHeader.astro';
         <p class="text-ink italic border-l-4 border-teal pl-4">
           Think of it as glamping on Jurassic Island: even in mortal danger, you still get your Nespresso.
         </p>
+
+        <p>
+          On Apple Silicon Macs, Glovebox automatically uses <strong class="text-ink">Apple Containers</strong>, which runs each session in its own micro-VM with hardware-level isolation. Same workflow, actual walls instead of just a tent. On other platforms, Docker keeps you covered.
+        </p>
       </div>
     </div>
   </section>
@@ -90,8 +94,8 @@ import SectionHeader from '../components/SectionHeader.astro';
           icon="/icon-persistent-containers.png"
         />
         <FeatureCard
-          title="Commit Workflow"
-          description="Made changes you want to keep? Glovebox detects them and offers to commit them back to the image."
+          title="Hardware Isolation"
+          description="On Apple Silicon, each session runs in its own micro-VM via Apple Containers — hardware-level isolation with sub-second startup. Docker works everywhere else."
           icon="/icon-commit-workflow.png"
         />
       </div>

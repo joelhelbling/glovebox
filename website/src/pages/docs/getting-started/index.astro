@@ -14,7 +14,8 @@ import Prose from '../../../components/Prose.astro';
 
     <h2>Prerequisites</h2>
     <ul>
-      <li>Docker</li>
+      <li><strong>macOS (Apple Silicon):</strong> <a href="https://github.com/apple/container">Apple Containers</a> — preferred (<code>brew install --cask container</code>)</li>
+      <li><strong>macOS / Linux:</strong> <a href="https://docs.docker.com/get-docker/">Docker</a> — universal fallback</li>
       <li>Go 1.25+ (only if building from source)</li>
     </ul>
 
@@ -33,6 +34,13 @@ make build</code></pre>
     <pre><code>make install  # installs to /usr/local/bin with gb symlink</code></pre>
 
     <h2>First Run</h2>
+
+    <p>
+      <strong>A note on runtimes:</strong> On Apple Silicon Macs, Glovebox automatically uses
+      <a href="https://github.com/apple/container">Apple Containers</a>, which runs each container
+      in its own micro-VM for hardware-level isolation. On other platforms (or if Apple Containers
+      isn't installed), Glovebox falls back to Docker. Either way, the commands below work the same.
+    </p>
 
     <h3>1. Create Your Base Environment</h3>
     <p>Run the interactive setup to choose your OS, shell, editor, and tools:</p>
@@ -55,7 +63,7 @@ make build</code></pre>
     <p>Navigate to any project directory and start a sandboxed session:</p>
     <pre><code>cd ~/projects/my-app
 glovebox run</code></pre>
-    <p>You're now inside a Docker container with your project mounted at <code>/workspace</code>. Your shell, editor, and tools are all available.</p>
+    <p>You're now inside a sandboxed container with your project mounted. Your shell, editor, and tools are all available.</p>
 
     <h3>4. Exit and Clean Up</h3>
     <p>When you're done, just exit the shell:</p>
