@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/joelhelbling/glovebox/internal/digest"
-	"github.com/joelhelbling/glovebox/internal/docker"
 	"github.com/joelhelbling/glovebox/internal/generator"
 	"github.com/joelhelbling/glovebox/internal/profile"
 	"github.com/spf13/cobra"
@@ -102,7 +101,7 @@ func buildBaseImage() error {
 
 func buildProjectImage(p *profile.Profile) error {
 	// When building (not just generating), ensure base image exists
-	if !buildGenerate && !docker.ImageExists("glovebox:base") {
+	if !buildGenerate && !rt.ImageExists("glovebox:base") {
 		fmt.Println("Base image not found. Building glovebox:base first...")
 		if err := buildBaseImage(); err != nil {
 			return fmt.Errorf("building base image: %w", err)
@@ -112,9 +111,9 @@ func buildProjectImage(p *profile.Profile) error {
 
 	// Check if base image has changed since last project build
 	var baseDigest string
-	if docker.ImageExists("glovebox:base") {
+	if rt.ImageExists("glovebox:base") {
 		var err error
-		baseDigest, err = docker.GetImageDigest("glovebox:base")
+		baseDigest, err = rt.GetImageDigest("glovebox:base")
 		if err != nil {
 			return fmt.Errorf("getting base image digest: %w", err)
 		}
@@ -323,22 +322,17 @@ func showDiff(existing, new string) error {
 }
 
 func runDockerBuild(dockerfilePath, imageName string) error {
-	fmt.Printf("\nBuilding Docker image %s...\n", imageName)
+	fmt.Printf("\nBuilding image %s...\n", imageName)
 
-	// Get the directory containing the Dockerfile
 	dockerfileDir := dockerfilePath[:len(dockerfilePath)-len("Dockerfile")]
 	if dockerfileDir == "" {
 		dockerfileDir = "."
 	}
 
-	cmd := exec.Command("docker", "build", "-t", imageName, "-f", dockerfilePath, dockerfileDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker build failed: %w", err)
+	if err := rt.BuildImage(dockerfilePath, dockerfileDir, imageName); err != nil {
+		return fmt.Errorf("image build failed: %w", err)
 	}
 
-	colorGreen.Printf("\n✓ Docker image %s built successfully\n", imageName)
+	colorGreen.Printf("\n✓ Image %s built successfully\n", imageName)
 	return nil
 }
