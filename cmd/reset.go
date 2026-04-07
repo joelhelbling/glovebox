@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/joelhelbling/glovebox/internal/docker"
@@ -44,15 +43,14 @@ func runReset(cmd *cobra.Command, args []string) error {
 	containerName := docker.ContainerName(absPath)
 
 	// Check if container exists
-	if !docker.ContainerExists(containerName) {
+	if !rt.ContainerExists(containerName) {
 		fmt.Println("No container found for this project. Nothing to reset.")
 		return nil
 	}
 
 	// Remove the container
 	prompt := ui.NewPrompt()
-	rmCmd := exec.Command("docker", "container", "rm", containerName)
-	if err := rmCmd.Run(); err != nil {
+	if err := rt.RemoveContainer(containerName); err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
 
