@@ -1,50 +1,14 @@
-// Package docker provides helper functions for Docker container and image operations.
+// Package docker provides helper functions for container naming.
 package docker
 
 import (
 	"crypto/sha256"
 	"fmt"
-	"os/exec"
 	"path/filepath"
-	"strings"
 )
-
-// ContainerExists checks if a container with the given name exists (running or stopped).
-func ContainerExists(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", name)
-	return cmd.Run() == nil
-}
-
-// ContainerRunning checks if a container is currently running.
-func ContainerRunning(name string) bool {
-	cmd := exec.Command("docker", "container", "inspect", "-f", "{{.State.Running}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(output)) == "true"
-}
-
-// ImageExists checks if a Docker image with the given name exists.
-func ImageExists(name string) bool {
-	cmd := exec.Command("docker", "image", "inspect", name)
-	return cmd.Run() == nil
-}
-
-// GetImageDigest returns the digest (ID) of a Docker image.
-func GetImageDigest(name string) (string, error) {
-	cmd := exec.Command("docker", "image", "inspect", "--format", "{{.Id}}", name)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
 
 // ContainerName generates a deterministic container name for a given directory.
 // Format: glovebox-<dirname>-<shorthash>
-// The hash is based on the absolute path to ensure uniqueness across
-// directories with the same name in different locations.
 func ContainerName(dir string) string {
 	absPath, err := filepath.Abs(dir)
 	if err != nil {
@@ -60,7 +24,6 @@ func ContainerName(dir string) string {
 
 // ImageName generates a deterministic image name for a given directory.
 // Format: glovebox:<dirname>-<shorthash>
-// Uses the same hashing logic as ContainerName for consistency.
 func ImageName(dir string) string {
 	absPath, err := filepath.Abs(dir)
 	if err != nil {
@@ -72,63 +35,4 @@ func ImageName(dir string) string {
 	dirName := filepath.Base(absPath)
 
 	return fmt.Sprintf("glovebox:%s-%s", dirName, shortHash)
-}
-
-// RunArgsConfig holds the configuration for building docker run arguments.
-type RunArgsConfig struct {
-	ContainerName  string
-	ImageName      string
-	HostPath       string
-	WorkspacePath  string
-	PassthroughEnv []string            // Environment variable names to pass through
-	EnvLookup      func(string) string // Function to look up env var values (defaults to os.Getenv)
-}
-
-// RunArgsResult contains the docker run arguments and metadata about what was configured.
-type RunArgsResult struct {
-	Args        []string // The docker run arguments
-	PassedVars  []string // Names of env vars that were actually passed through
-	MissingVars []string // Names of env vars that were requested but not set
-}
-
-// BuildRunArgs constructs the arguments for a docker run command.
-// This is extracted to allow testing without actually running docker.
-func BuildRunArgs(cfg RunArgsConfig) RunArgsResult {
-	envLookup := cfg.EnvLookup
-	if envLookup == nil {
-		envLookup = func(key string) string { return "" }
-	}
-
-	args := []string{
-		"run", "-it",
-		"--name", cfg.ContainerName,
-		"-v", fmt.Sprintf("%s:%s", cfg.HostPath, cfg.WorkspacePath),
-		"-w", cfg.WorkspacePath,
-		"--hostname", "glovebox",
-	}
-
-	var passedVars []string
-	var missingVars []string
-
-	// Add environment variables from passthrough list
-	for _, env := range cfg.PassthroughEnv {
-		if val := envLookup(env); val != "" {
-			args = append(args, "-e", fmt.Sprintf("%s=%s", env, val))
-			passedVars = append(passedVars, env)
-		} else {
-			missingVars = append(missingVars, env)
-		}
-	}
-
-	// Add mise trusted config path
-	args = append(args, "-e", fmt.Sprintf("MISE_TRUSTED_CONFIG_PATHS=%s:%s/**", cfg.WorkspacePath, cfg.WorkspacePath))
-
-	// Add image name
-	args = append(args, cfg.ImageName)
-
-	return RunArgsResult{
-		Args:        args,
-		PassedVars:  passedVars,
-		MissingVars: missingVars,
-	}
 }
