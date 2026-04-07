@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/fatih/color"
@@ -83,8 +82,8 @@ func runClean(cmd *cobra.Command, args []string) error {
 	containerName := docker.ContainerName(targetDir)
 
 	// Check if there's anything to clean
-	imageFound := docker.ImageExists(imageName)
-	containerFound := docker.ContainerExists(containerName)
+	imageFound := rt.ImageExists(imageName)
+	containerFound := rt.ContainerExists(containerName)
 
 	if !containerFound && (!cleanImage || !imageFound) {
 		yellow.Printf("No glovebox container found for %s\n", collapsePath(targetDir))
@@ -117,38 +116,18 @@ type containerInfo struct {
 }
 
 func findRunningGloveboxContainers() ([]containerInfo, error) {
-	// Find running containers using glovebox images
-	cmd := exec.Command("docker", "ps", "--filter", "ancestor=glovebox", "--format", "{{.Names}}\t{{.Image}}")
-	output, err := cmd.Output()
+	containers, err := rt.ListContainers("", false) // running only
 	if err != nil {
-		// Also try filtering by image name pattern
-		cmd = exec.Command("docker", "ps", "--format", "{{.Names}}\t{{.Image}}")
-		output, err = cmd.Output()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	var containers []containerInfo
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		parts := strings.Split(line, "\t")
-		if len(parts) >= 2 {
-			image := parts[1]
-			// Check if it's a glovebox image
-			if strings.HasPrefix(image, "glovebox:") {
-				containers = append(containers, containerInfo{
-					name:  parts[0],
-					image: image,
-				})
-			}
+	var result []containerInfo
+	for _, c := range containers {
+		if strings.HasPrefix(c.Image, "glovebox:") {
+			result = append(result, containerInfo{name: c.Name, image: c.Image})
 		}
 	}
-
-	return containers, nil
+	return result, nil
 }
 
 func cleanAllGlovebox(yellow, green, red *color.Color) error {
@@ -209,43 +188,26 @@ func cleanAllGlovebox(yellow, green, red *color.Color) error {
 }
 
 func findGloveboxImages() ([]string, error) {
-	cmd := exec.Command("docker", "images", "--filter", "reference=glovebox:*", "--format", "{{.Repository}}:{{.Tag}}")
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	var images []string
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if line != "" {
-			images = append(images, line)
-		}
-	}
-	return images, nil
+	return rt.ListImages("glovebox:*")
 }
 
 func findGloveboxContainers() ([]string, error) {
-	cmd := exec.Command("docker", "container", "ls", "-a", "--filter", "name=glovebox-", "--format", "{{.Names}}")
-	output, err := cmd.Output()
+	containers, err := rt.ListContainers("glovebox-", true) // all, including stopped
 	if err != nil {
 		return nil, err
 	}
 
-	var containers []string
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
-		if line != "" && strings.HasPrefix(line, "glovebox-") {
-			containers = append(containers, line)
+	var names []string
+	for _, c := range containers {
+		if strings.HasPrefix(c.Name, "glovebox-") {
+			names = append(names, c.Name)
 		}
 	}
-	return containers, nil
+	return names, nil
 }
 
 func removeContainer(name string, green *color.Color) error {
-	// Force remove to handle both running and stopped containers
-	cmd := exec.Command("docker", "container", "rm", "-f", name)
-	if err := cmd.Run(); err != nil {
+	if err := rt.ForceRemoveContainer(name); err != nil {
 		return err
 	}
 	green.Printf("Removed container: %s\n", name)
@@ -253,8 +215,7 @@ func removeContainer(name string, green *color.Color) error {
 }
 
 func removeImage(name string, green *color.Color) error {
-	cmd := exec.Command("docker", "rmi", name)
-	if err := cmd.Run(); err != nil {
+	if err := rt.RemoveImage(name); err != nil {
 		return err
 	}
 	green.Printf("Removed image: %s\n", name)
