@@ -19,8 +19,8 @@ var (
 
 var cleanCmd = &cobra.Command{
 	Use:   "clean [directory]",
-	Short: "Remove glovebox Docker container (and optionally image)",
-	Long: `Remove glovebox Docker container for the current project.
+	Short: "Remove glovebox container (and optionally image)",
+	Long: `Remove glovebox container for the current project.
 
 By default, removes only the container (preserving the image):
   - Discards any uncommitted changes in the container

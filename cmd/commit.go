@@ -17,7 +17,7 @@ var commitCmd = &cobra.Command{
 	Long: `Commit changes from the current project's container to its image.
 
 This persists any modifications made during glovebox sessions (installed
-packages, configuration changes, etc.) to the Docker image. The container
+packages, configuration changes, etc.) to the image. The container
 is then removed so the next 'glovebox run' starts fresh from the updated image.
 
 Use this after installing tools or making configuration changes you want
