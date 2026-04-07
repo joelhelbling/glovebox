@@ -3,7 +3,6 @@ description: Anthropic's Claude Code CLI assistant
 category: ai
 requires:
   - base
-  - bash
 provides:
   - claude-code
 

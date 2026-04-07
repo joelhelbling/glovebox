@@ -65,23 +65,19 @@ func TestDependencyResolution(t *testing.T) {
 		t.Error("Expected gemini-cli to be included")
 	}
 
-	// Test that claude-code pulls in bash
-	deps2, err := ResolveDependencies("ai/claude-code", "alpine")
+	// Test that claude-code-alpine resolves on alpine without requiring shells/bash
+	// (claude-code-alpine installs bash directly via apk, not the bash shell mod)
+	deps2, err := ResolveDependencies("ai/claude-code-alpine", "alpine")
 	if err != nil {
 		t.Fatalf("Failed to resolve dependencies: %v", err)
 	}
 
-	t.Logf("Dependencies for ai/claude-code on alpine: %v", deps2)
+	t.Logf("Dependencies for ai/claude-code-alpine on alpine: %v", deps2)
 
-	hasBash := false
 	for _, dep := range deps2 {
-		if dep == "shells/bash" {
-			hasBash = true
+		if dep == "shells/bash" || dep == "shells/bash-alpine" {
+			t.Error("Expected claude-code-alpine NOT to require the bash shell mod")
 		}
-	}
-
-	if !hasBash {
-		t.Error("Expected bash to be included as dependency for claude-code")
 	}
 }
 
