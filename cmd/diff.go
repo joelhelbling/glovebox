@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -50,38 +49,42 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	// Get container name for this project
 	containerName := docker.ContainerName(absPath)
 
-	// Check if container exists
-	if !docker.ContainerExists(containerName) {
+	if !rt.ContainerExists(containerName) {
 		fmt.Println("No container found for this project.")
 		return nil
 	}
 
-	// Get the diff
-	diffCmd := exec.Command("docker", "diff", containerName)
-	output, err := diffCmd.Output()
+	caps := rt.Capabilities()
+	if !caps.SupportsDiff {
+		return fmt.Errorf("diff is not supported by %s runtime", rt.Name())
+	}
+
+	diffs, err := rt.Diff(containerName)
 	if err != nil {
 		return fmt.Errorf("getting container diff: %w", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+	// Convert to string format for existing processing logic
+	var lines []string
+	for _, d := range diffs {
+		lines = append(lines, fmt.Sprintf("%s %s", d.ChangeType, d.Path))
+	}
+
+	if len(lines) == 0 {
 		fmt.Println("No changes detected in container.")
 		return nil
 	}
 
 	if diffRaw {
-		// Raw mode: just print docker diff output
-		fmt.Println(string(output))
+		// Raw mode: just print each diff line
+		for _, line := range lines {
+			fmt.Println(line)
+		}
 		return nil
 	}
 
 	// Use the shared filterNoise function
-	allChanges := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if line != "" {
-			allChanges = append(allChanges, line)
-		}
-	}
+	allChanges := lines
 
 	meaningful := filterNoise(allChanges)
 	noiseCount := len(allChanges) - len(meaningful)
