@@ -18,6 +18,19 @@ func TestDetect_withOverride(t *testing.T) {
 		}
 	})
 
+	t.Run("apple override", func(t *testing.T) {
+		result, err := Detect("apple", Stdio{})
+		if err != nil {
+			t.Skipf("Apple Containers not available: %v", err)
+		}
+		if result.Runtime.Name() != "Apple Containers" {
+			t.Errorf("expected Apple Containers runtime, got %q", result.Runtime.Name())
+		}
+		if result.FellBack {
+			t.Error("explicit override should not be a fallback")
+		}
+	})
+
 	t.Run("unknown override errors", func(t *testing.T) {
 		_, err := Detect("nonexistent-runtime", Stdio{})
 		if err == nil {
