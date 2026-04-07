@@ -21,7 +21,9 @@ var rootCmd = &cobra.Command{
 	Short: "A composable, sandboxed development environment",
 	Long: `Glovebox creates sandboxed containers for running untrusted or
 experimental code. It uses a mod-based system to compose your perfect
-development environment from modular, reusable pieces.`,
+development environment from modular, reusable pieces.
+
+Supports multiple container runtimes. Use --runtime to override auto-detection.`,
 	Version: Version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip runtime detection for commands that don't need it
